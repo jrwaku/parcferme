@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>PARC FERMÉ · F1 met z'n vieren</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏁</text></svg>">
+<style>
+:root{
+  --bg:#0b0b10; --bg2:#12121a; --bg3:#1a1a25; --line:#23232f;
+  --txt:#f2f2f5; --dim:#9a9aa8; --faint:#5c5c6c;
+  --red:#e10600; --red2:#ff2a24; --gold:#f5c518; --green:#2fd06f; --blue:#4aa3ff;
+  --radius:16px;
+  --nav-h:calc(60px + env(safe-area-inset-bottom));
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--txt);
+  font-family:'Titillium Web',system-ui,sans-serif;
+  min-height:100dvh; padding-bottom:var(--nav-h);
+  overscroll-behavior-y:contain;
+}
+/* ---------- header ---------- */
+header{
+  position:sticky; top:0; z-index:40;
+  display:flex; align-items:center; gap:10px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:linear-gradient(180deg,rgba(11,11,16,.98),rgba(11,11,16,.92));
+  backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
+}
+.logo{display:flex; align-items:baseline; gap:8px; font-weight:900; font-size:20px; letter-spacing:1px}
+.logo .flag{font-size:18px}
+.logo b{color:var(--red2)}
+.season-badge{
+  font-family:var(--mono); font-size:11px; color:var(--dim);
+  border:1px solid var(--line); border-radius:99px; padding:2px 9px;
+}
+.spacer{flex:1}
+.me-chip{
+  display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700;
+  background:var(--bg3); border:1px solid var(--line); border-radius:99px;
+  padding:5px 12px; color:var(--txt); cursor:pointer; user-select:none;
+}
+.me-chip span.em{font-size:15px}
+/* ---------- layout ---------- */
+main{max-width:560px; margin:0 auto; padding:14px 14px 24px}
+.view{display:none; animation:fadein .18s ease}
+.view.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{
+  background:var(--bg2); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px; margin-bottom:14px; overflow:hidden;
+}
+.card h2{font-size:13px; text-transform:uppercase; letter-spacing:2px; color:var(--dim); margin-bottom:12px; font-weight:700}
+.muted{color:var(--dim)} .small{font-size:12px}
+/* ---------- hero / next race ---------- */
+.hero{
+  position:relative; border:1px solid var(--line); border-radius:var(--radius);
+  padding:18px 16px 16px; margin-bottom:14px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(225,6,0,.22), transparent 55%),
+    linear-gradient(180deg,#15151f,#101018);
+}
+.hero .round{font-family:var(--mono); font-size:11px; color:var(--dim); letter-spacing:1px}
+.hero h1{font-size:26px; font-weight:900; line-height:1.1; margin:4px 0 2px}
+.hero .circuit{color:var(--dim); font-size:13px; margin-bottom:14px}
+.live-pill{
+  display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700;
+  color:#fff; background:var(--red); border-radius:99px; padding:3px 10px;
+  text-transform:uppercase; letter-spacing:1px; animation:pulse 1.6s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.countdown{display:flex; gap:8px; margin:6px 0 14px}
+.cd-box{
+  flex:1; text-align:center; background:rgba(0,0,0,.35); border:1px solid var(--line);
+  border-radius:12px; padding:8px 2px;
+}
+.cd-box b{display:block; font-family:var(--mono); font-size:24px; font-weight:700}
+.cd-box span{font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--dim)}
+.cd-label{font-size:12px; color:var(--dim); margin-bottom:6px}
+.sessions{display:flex; flex-direction:column; gap:6px}
+.sess{
+  display:flex; align-items:center; gap:10px; font-size:13px;
+  padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.03);
+}
+.sess.done{opacity:.42}
+.sess.live{background:rgba(225,6,0,.15); border:1px solid rgba(225,6,0,.4)}
+.sess .s-name{flex:1; font-weight:600}
+.sess .s-time{font-family:var(--mono); font-size:12px; color:var(--dim)}
+.sess .s-day{font-size:11px; color:var(--faint); width:34px; text-transform:uppercase}
+/* ---------- result rows ---------- */
+.res-row{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.04)}
+.res-row:last-child{border-bottom:none}
+.pos{font-family:var(--mono); width:26px; font-size:13px; color:var(--dim); text-align:right}
+.teambar{width:4px; height:22px; border-radius:2px; background:var(--faint)}
+.d-name{flex:1; font-weight:600; font-size:14px}
+.d-team{font-size:11px; color:var(--faint); display:block; font-weight:400}
+.d-right{font-family:var(--mono); font-size:12px; color:var(--dim)}
+.medal{font-size:15px; width:22px; text-align:center}
+/* ---------- predictions ---------- */
+.lock-info{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px}
+.lock-tag{
+  font-size:11px; font-family:var(--mono); color:var(--dim);
+  border:1px solid var(--line); border-radius:8px; padding:4px 8px;
+}
+.lock-tag.locked{color:var(--red2); border-color:rgba(225,6,0,.4)}
+.slotgrid{display:flex; flex-direction:column; gap:8px; margin-bottom:10px}
+.slot{
+  display:flex; align-items:center; gap:12px; width:100%;
+  background:var(--bg3); border:1px solid var(--line); border-radius:12px;
+  padding:11px 12px; color:var(--txt); font:inherit; cursor:pointer; text-align:left;
+}
+.slot:active{transform:scale(.985)}
+.slot[disabled]{opacity:.55; cursor:default}
+.slot .slot-pos{
+  font-family:var(--mono); font-weight:700; font-size:13px; width:38px; height:38px;
+  display:flex; align-items:center; justify-content:center; border-radius:10px;
+  background:rgba(255,255,255,.06); flex-shrink:0;
+}
+.slot.p1 .slot-pos{background:linear-gradient(135deg,#f5c51833,#f5c51811); color:var(--gold)}
+.slot .slot-main{flex:1}
+.slot .slot-driver{font-weight:700; font-size:15px}
+.slot .slot-empty{color:var(--faint); font-size:14px}
+.slot .slot-team{font-size:11px; color:var(--faint); display:block}
+.slot .chev{color:var(--faint)}
+.joker-row{
+  display:flex; align-items:center; gap:12px; background:var(--bg3);
+  border:1px solid var(--line); border-radius:12px; padding:11px 12px; margin-bottom:10px;
+}
+.joker-row .jr-main{flex:1}
+.joker-row b{font-size:14px}
+.joker-row .small{display:block}
+.toggle{width:46px; height:26px; border-radius:99px; background:var(--line); position:relative; cursor:pointer; border:none; flex-shrink:0; transition:background .15s}
+.toggle::after{content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:left .15s}
+.toggle.on{background:var(--gold)}
+.toggle.on::after{left:23px}
+.toggle[disabled]{opacity:.45; cursor:default}
+.save-note{font-size:12px; color:var(--green); min-height:16px; font-family:var(--mono)}
+.other-pred{padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+.other-pred:last-child{border:none}
+.op-head{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px}
+.op-head .pts{margin-left:auto; font-family:var(--mono); color:var(--gold); font-size:13px}
+.op-picks{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
+.pick-chip{
+  font-size:12px; font-family:var(--mono); border-radius:8px; padding:3px 8px;
+  background:var(--bg3); border:1px solid var(--line); color:var(--txt);
+}
+.pick-chip.hit{border-color:var(--green); color:var(--green)}
+.pick-chip.near{border-color:var(--gold); color:var(--gold)}
+.pick-chip .pc-label{color:var(--faint)}
+/* ---------- standings ---------- */
+.tabs-inline{display:flex; gap:6px; margin-bottom:12px}
+.tab-btn{
+  flex:1; padding:8px 4px; font:inherit; font-size:12px; font-weight:700; text-transform:uppercase;
+  letter-spacing:1px; color:var(--dim); background:var(--bg3); border:1px solid var(--line);
+  border-radius:10px; cursor:pointer;
+}
+.tab-btn.active{color:#fff; background:rgba(225,6,0,.18); border-color:rgba(225,6,0,.5)}
+.cup-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+.cup-row:last-child{border:none}
+.cup-rank{font-family:var(--mono); font-size:18px; font-weight:700; width:26px; color:var(--dim)}
+.cup-row.first .cup-rank{color:var(--gold)}
+.cup-em{font-size:24px}
+.cup-main{flex:1}
+.cup-name{font-weight:700; font-size:16px}
+.cup-sub{font-size:11px; color:var(--faint); font-family:var(--mono)}
+.cup-pts{font-family:var(--mono); font-size:20px; font-weight:700}
+.cup-pts span{font-size:11px; color:var(--faint); font-weight:400}
+.matrix-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch}
+table.matrix{border-collapse:collapse; font-family:var(--mono); font-size:12px; min-width:100%}
+table.matrix th, table.matrix td{padding:6px 8px; text-align:center; white-space:nowrap}
+table.matrix th{color:var(--faint); font-weight:400; font-size:10px}
+table.matrix td.pname{text-align:left; font-family:'Titillium Web'; font-weight:700}
+table.matrix td.best{color:var(--gold); font-weight:700}
+/* ---------- calendar ---------- */
+.cal-row{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+.cal-row:last-child{border:none}
+.cal-row.past{opacity:.5}
+.cal-row.next{
+  background:linear-gradient(90deg,rgba(225,6,0,.12),transparent);
+  border-radius:10px; padding:11px 10px; border:1px solid rgba(225,6,0,.35); opacity:1;
+}
+.cal-flag{font-size:22px; width:28px; text-align:center}
+.cal-main{flex:1; min-width:0}
+.cal-name{font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.cal-sub{font-size:11px; color:var(--faint)}
+.cal-right{text-align:right; font-family:var(--mono); font-size:12px; color:var(--dim)}
+.cal-right .win{color:var(--gold)}
+/* ---------- bottom nav ---------- */
+nav{
+  position:fixed; bottom:0; left:0; right:0; z-index:50;
+  display:flex; height:var(--nav-h); padding-bottom:env(safe-area-inset-bottom);
+  background:rgba(14,14,20,.96); backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+}
+nav button{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  background:none; border:none; color:var(--faint); font-family:inherit; font-size:10px;
+  font-weight:700; letter-spacing:.5px; cursor:pointer; text-transform:uppercase;
+}
+nav button svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+nav button.active{color:#fff}
+nav button.active .nv-ic{color:var(--red2)}
+/* ---------- overlays ---------- */
+.overlay{
+  position:fixed; inset:0; z-index:100; background:rgba(5,5,9,.7); backdrop-filter:blur(6px);
+  display:none; align-items:flex-end; justify-content:center;
+}
+.overlay.open{display:flex}
+.sheet{
+  width:100%; max-width:560px; max-height:82dvh; overflow-y:auto;
+  background:var(--bg2); border:1px solid var(--line); border-bottom:none;
+  border-radius:20px 20px 0 0; padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  animation:up .22s ease;
+}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.sheet h3{font-size:15px; margin-bottom:12px}
+.sheet .search{
+  width:100%; font:inherit; font-size:15px; color:var(--txt); background:var(--bg3);
+  border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px;
+}
+.drv-opt{
+  display:flex; align-items:center; gap:12px; width:100%; padding:10px 8px;
+  background:none; border:none; border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--txt); font:inherit; cursor:pointer; text-align:left;
+}
+.drv-opt .num{font-family:var(--mono); width:30px; color:var(--dim); font-size:13px; text-align:right}
+.drv-opt[disabled]{opacity:.35}
+.profile-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px}
+.profile-btn{
+  display:flex; flex-direction:column; align-items:center; gap:8px; padding:22px 8px;
+  background:var(--bg3); border:1px solid var(--line); border-radius:16px;
+  color:var(--txt); font:inherit; font-weight:700; font-size:15px; cursor:pointer;
+}
+.profile-btn:active{transform:scale(.97)}
+.profile-btn .em{font-size:34px}
+.center-overlay{align-items:center; padding:20px}
+.center-overlay .sheet{border-radius:20px; border-bottom:1px solid var(--line); animation:fadein .2s ease}
+/* ---------- pincode ---------- */
+.pin-dots{display:flex;gap:14px;justify-content:center;margin:18px 0 4px}
+.pin-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--faint);transition:all .1s}
+.pin-dot.fill{background:var(--red2);border-color:var(--red2)}
+.pin-err{min-height:18px;text-align:center;color:var(--red2);font-size:12px;font-family:var(--mono);margin-bottom:8px}
+.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:270px;margin:0 auto}
+.pinpad button{padding:15px 0;font-size:21px;font-family:var(--mono);background:var(--bg3);border:1px solid var(--line);border-radius:14px;color:var(--txt);cursor:pointer}
+.pinpad button:active{transform:scale(.94);background:var(--line)}
+.pinpad button.blank{visibility:hidden}
+.pin-back{display:block;margin:14px auto 0;background:none;border:none;color:var(--dim);font:inherit;font-size:13px;cursor:pointer}
+/* ---------- misc ---------- */
+.banner{
+  display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:var(--dim);
+  background:var(--bg2); border:1px dashed var(--line); border-radius:12px;
+  padding:10px 12px; margin-bottom:14px; line-height:1.45;
+}
+.pts-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
+.pchip{
+  display:flex; align-items:center; gap:5px; font-size:12px; font-weight:700;
+  background:var(--bg3); border:1px solid var(--line); border-radius:99px; padding:4px 10px;
+}
+.pchip .v{font-family:var(--mono); color:var(--gold)}
+.loading{color:var(--faint); font-size:13px; padding:18px 0; text-align:center; font-family:var(--mono)}
+.checker{height:6px; margin:-16px -16px 14px; background:
+  repeating-conic-gradient(#fff2 0% 25%, transparent 0% 50%) 0 0/12px 12px}
+a{color:var(--blue)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="flag">🏁</span>PARC&nbsp;<b>FERMÉ</b></div>
+  <span class="season-badge" id="seasonBadge">—</span>
+  <div class="spacer"></div>
+  <button class="me-chip" id="meChip" onclick="openProfilePicker(false)"><span class="em">👤</span><span id="meName">kies profiel</span></button>
+</header>
+
+<main>
+  <div id="storageBanner"></div>
+  <section id="view-race" class="view active"><div class="loading">Data laden…</div></section>
+  <section id="view-predict" class="view"><div class="loading">Data laden…</div></section>
+  <section id="view-standings" class="view"><div class="loading">Data laden…</div></section>
+  <section id="view-calendar" class="view"><div class="loading">Data laden…</div></section>
+</main>
+
+<nav>
+  <button id="nav-race" class="active" onclick="setView('race')">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M4 4v16M4 5h13l-2.5 3.5L17 12H4"/></svg></span>Race
+  </button>
+  <button id="nav-predict" onclick="setView('predict')">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>Voorspel
+  </button>
+  <button id="nav-standings" onclick="setView('standings')">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0zM7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3"/></svg></span>Stand
+  </button>
+  <button id="nav-calendar" onclick="setView('calendar')">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>Kalender
+  </button>
+</nav>
+
+<div class="overlay" id="pickerOverlay"><div class="sheet" id="pickerSheet"></div></div>
+<div class="overlay center-overlay" id="profileOverlay"><div class="sheet" id="profileSheet"></div></div>
+
+<script>
+/* ============================================================
+   PITBOX · F1-site voor 4 — configuratie
+   ============================================================ */
+const CONFIG = {
+  // Jullie vier. Pas namen/emoji gerust aan (maar laat de id's staan zodra jullie voorspellen).
+  players: [
+    // Iedereen maakt bij z'n eerste bezoek zélf een 4-cijferige inlogcode aan;
+    // die staat daarna voorgoed vast. Resetten kan alleen via Supabase (zie handleiding).
+    { id:'jay',  name:'Jay',  emoji:'🏎️' },
+    { id:'rick', name:'Rick', emoji:'🧢' },
+    { id:'euge', name:'Euge', emoji:'🎉' },
+    { id:'maup', name:'Maup', emoji:'🍻' },
+  ],
+  // Naam van jullie onderlinge klassement (Stand-tab).
+  cupName: 'De Anti-Russell Cup',
+  // Gedeelde opslag (Supabase, gratis) — vul deze 2 in na stap 2 van de handleiding.
+  // Leeg = demo-modus: voorspellingen alleen op dit toestel.
+  supabaseUrl: 'https://wpzvbudaexzqdghcesiy.supabase.co',
+  supabaseKey: 'sb_publishable_HclSi6DbFD3NxBwnZcKVSQ_0N_bPx5_',
+  // Optioneel: OpenF1 sponsor-token voor échte live timing (€9,90/mnd). Leeg = uit.
+  openf1Key: '',
+  jokersPerSeason: 2,
+};
+// Puntentelling: kwali is de helft van de race waard; snelste ronde is een kleine bonus.
+const SCORING = {
+  race:  { p1:25, p2:18, p3:15, near:8, perfect:15, fl:10 },
+  quali: { p1:12, p2:9,  p3:7,  near:4, perfect:8 },
+};
+</script>
+<script>
+/* ============================================================
+   PITBOX — app
+   Data: Jolpica (kalender/uitslagen/klassement, gratis) + optioneel OpenF1 live
+   ============================================================ */
+'use strict';
+const J_BASE = 'https://api.jolpi.ca/ergast/f1';
+const O_BASE = 'https://api.openf1.org/v1';
+const LS = 'pb:';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- team kleuren ---------- */
+const TEAM_COLORS = [
+  ['mclaren','#FF8000'], ['ferrari','#E80020'], ['red_bull','#3671C6'], ['redbull','#3671C6'],
+  ['mercedes','#27F4D2'], ['aston','#229971'], ['alpine','#FF87BC'], ['williams','#64C4FF'],
+  ['rb','#6692FF'], ['racing_bulls','#6692FF'], ['audi','#F50537'], ['sauber','#F50537'],
+  ['cadillac','#FFD659'], ['haas','#B6BABD'],
+];
+function teamColor(id){
+  const k = String(id||'').toLowerCase();
+  for(const [key,c] of TEAM_COLORS){ if(k.includes(key)) return c; }
+  return '#5c5c6c';
+}
+const COUNTRY_FLAGS = {
+  'Australia':'🇦🇺','China':'🇨🇳','Japan':'🇯🇵','USA':'🇺🇸','United States':'🇺🇸','Monaco':'🇲🇨',
+  'Canada':'🇨🇦','Spain':'🇪🇸','Austria':'🇦🇹','UK':'🇬🇧','United Kingdom':'🇬🇧','Great Britain':'🇬🇧',
+  'Belgium':'🇧🇪','Hungary':'🇭🇺','Netherlands':'🇳🇱','Italy':'🇮🇹','Azerbaijan':'🇦🇿','Singapore':'🇸🇬',
+  'Mexico':'🇲🇽','Brazil':'🇧🇷','Qatar':'🇶🇦','UAE':'🇦🇪','United Arab Emirates':'🇦🇪','Abu Dhabi':'🇦🇪',
+  'Bahrain':'🇧🇭','Saudi Arabia':'🇸🇦','Malaysia':'🇲🇾','France':'🇫🇷','Germany':'🇩🇪','Portugal':'🇵🇹',
+};
+const flagOf = c => COUNTRY_FLAGS[c] || '🏁';
+
+/* ---------- cache + fetch ---------- */
+function lsGet(k){ try{ const v = localStorage.getItem(LS+k); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(LS+k, JSON.stringify(v)); }catch(e){} }
+
+const inflight = {};
+async function cachedJSON(url, ttlMs){
+  const key = 'c:'+url;
+  const hit = lsGet(key);
+  const now = Date.now();
+  if(hit && (ttlMs === Infinity || now - hit.t < ttlMs)) return hit.d;
+  if(inflight[url]) return inflight[url];
+  inflight[url] = (async () => {
+    try{
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d = await r.json();
+      lsSet(key, {t: now, d});
+      return d;
+    }catch(e){
+      if(hit) return hit.d;           // liever oude data dan niks
+      throw e;
+    }finally{ delete inflight[url]; }
+  })();
+  return inflight[url];
+}
+
+/* ---------- Jolpica helpers ---------- */
+const MIN = 60e3, HOUR = 3600e3;
+
+async function getCalendar(){
+  const d = await cachedJSON(`${J_BASE}/current/races.json?limit=30`, 6*HOUR);
+  const rt = d.MRData.RaceTable;
+  const season = parseInt(rt.season, 10);
+  const races = (rt.Races||[]).map(r => {
+    const mk = (o, label, type, durMin) => o && o.date
+      ? { label, type, start: new Date(`${o.date}T${o.time||'12:00:00Z'}`), durMin } : null;
+    const sessions = [
+      mk(r.FirstPractice,'VT1','fp',60), mk(r.SecondPractice,'VT2','fp',60), mk(r.ThirdPractice,'VT3','fp',60),
+      mk(r.SprintQualifying,'Sprint Kwali','sq',60), mk(r.Sprint,'Sprint','sprint',60),
+      mk(r.Qualifying,'Kwalificatie','quali',60),
+      mk({date:r.date, time:r.time},'Race','race',150),
+    ].filter(Boolean).sort((a,b)=>a.start-b.start);
+    return {
+      season, round: parseInt(r.round,10), name: r.raceName,
+      circuit: r.Circuit?.circuitName || '', locality: r.Circuit?.Location?.locality || '',
+      country: r.Circuit?.Location?.country || '', sessions,
+      raceStart: new Date(`${r.date}T${r.time||'13:00:00Z'}`),
+      qualiStart: r.Qualifying?.date ? new Date(`${r.Qualifying.date}T${r.Qualifying.time||'12:00:00Z'}`) : null,
+      isSprint: !!r.Sprint,
+    };
+  });
+  return { season, races };
+}
+
+async function getDrivers(season){
+  const [dRes, sRes] = await Promise.allSettled([
+    cachedJSON(`${J_BASE}/${season}/drivers.json?limit=60`, 6*HOUR),
+    cachedJSON(`${J_BASE}/${season}/driverstandings.json?limit=60`, 10*MIN),
+  ]);
+  const map = {};
+  if(dRes.status === 'fulfilled'){
+    for(const d of dRes.value.MRData.DriverTable?.Drivers || []){
+      map[d.driverId] = {
+        id: d.driverId, code: d.code || (d.familyName||'').slice(0,3).toUpperCase(),
+        num: d.permanentNumber || '', given: d.givenName, family: d.familyName,
+        name: `${d.givenName} ${d.familyName}`, team: '', teamId: '', points: 0, pos: null,
+      };
+    }
+  }
+  if(sRes.status === 'fulfilled'){
+    const list = sRes.value.MRData.StandingsTable?.StandingsLists?.[0]?.DriverStandings || [];
+    for(const s of list){
+      const id = s.Driver.driverId;
+      if(!map[id]) map[id] = { id, code: s.Driver.code || '', num: s.Driver.permanentNumber || '',
+        given: s.Driver.givenName, family: s.Driver.familyName,
+        name: `${s.Driver.givenName} ${s.Driver.familyName}`, team:'', teamId:'', points:0, pos:null };
+      const c = s.Constructors?.[s.Constructors.length-1];
+      map[id].team = c?.name || ''; map[id].teamId = c?.constructorId || '';
+      map[id].points = parseFloat(s.points)||0; map[id].pos = parseInt(s.position,10)||null;
+    }
+  }
+  const arr = Object.values(map);
+  arr.sort((a,b)=>(a.pos??99)-(b.pos??99) || a.family.localeCompare(b.family));
+  return arr;
+}
+
+async function getResult(season, round, raceStart){
+  // uitslag is definitief → na 3 dagen oneindig cachen
+  const old = raceStart && (Date.now() - raceStart.getTime() > 3*24*HOUR);
+  const d = await cachedJSON(`${J_BASE}/${season}/${round}/results.json?limit=40`, old ? Infinity : 5*MIN);
+  const res = d.MRData.RaceTable?.Races?.[0]?.Results;
+  if(!res || !res.length) return null;
+  const rows = res.map(r => ({
+    pos: parseInt(r.position,10), driverId: r.Driver.driverId,
+    code: r.Driver.code || '', name: `${r.Driver.givenName} ${r.Driver.familyName}`,
+    teamId: r.Constructor?.constructorId || '', team: r.Constructor?.name || '',
+    status: r.status || '', time: r.Time?.time || r.status || '',
+  }));
+  const flRow = res.find(r => r.FastestLap && String(r.FastestLap.rank) === '1');
+  return { rows, fl: flRow ? flRow.Driver.driverId : null };
+}
+
+async function getQualiTop3(season, round, qualiStart){
+  const old = qualiStart && (Date.now() - qualiStart.getTime() > 3*24*HOUR);
+  const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=5`, old ? Infinity : 5*MIN);
+  const q = d.MRData.RaceTable?.Races?.[0]?.QualifyingResults;
+  if(!q || !q.length) return null;
+  return q.slice(0,3).map(r => ({
+    pos: parseInt(r.position,10), driverId: r.Driver.driverId,
+    code: r.Driver.code || '', name: `${r.Driver.givenName} ${r.Driver.familyName}`,
+  }));
+}
+
+async function getConstructorStandings(season){
+  const d = await cachedJSON(`${J_BASE}/${season}/constructorstandings.json?limit=20`, 10*MIN);
+  return (d.MRData.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings || []).map(s => ({
+    pos: parseInt(s.position,10), name: s.Constructor.name, id: s.Constructor.constructorId,
+    points: parseFloat(s.points)||0, wins: parseInt(s.wins,10)||0,
+  }));
+}
+
+/* ---------- voorspellingen: Supabase of localStorage ---------- */
+const SB = {
+  on: !!(CONFIG.supabaseUrl && CONFIG.supabaseKey),
+  headers(){ return {
+    'apikey': CONFIG.supabaseKey, 'Authorization': 'Bearer '+CONFIG.supabaseKey,
+    'Content-Type': 'application/json',
+  };},
+};
+
+async function loadPreds(season){
+  if(SB.on){
+    try{
+      const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/predictions?season=eq.${season}&select=*`, { headers: SB.headers() });
+      if(!r.ok) throw new Error('supabase '+r.status);
+      const rows = await r.json();
+      lsSet('preds:'+season, rows);            // offline-kopie
+      return rows;
+    }catch(e){
+      console.warn('Supabase niet bereikbaar, val terug op lokale kopie', e);
+      return lsGet('preds:'+season) || [];
+    }
+  }
+  return lsGet('preds:'+season) || [];
+}
+
+async function savePred(p){
+  // p = {season, round, player, p1,p2,p3,pole,joker}
+  const local = lsGet('preds:'+p.season) || [];
+  const i = local.findIndex(x => x.round === p.round && x.player === p.player);
+  const row = { ...p, updated_at: new Date().toISOString() };
+  if(i >= 0) local[i] = row; else local.push(row);
+  lsSet('preds:'+p.season, local);
+  if(SB.on){
+    const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/predictions?on_conflict=season,round,player`, {
+      method:'POST',
+      headers: { ...SB.headers(), 'Prefer':'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(row),
+    });
+    if(!r.ok) throw new Error('Opslaan mislukt ('+r.status+')');
+  }
+}
+
+/* ---------- pincodes (zelf aangemaakt, voorgoed vast) ---------- */
+function pinHash(player, pin){
+  let h = 5381; const str = player + ':' + pin + ':parcferme';
+  for(let i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) | 0; }
+  return (h >>> 0).toString(16);
+}
+async function loadPins(){
+  if(SB.on){
+    try{
+      const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/pins?select=*`, { headers: SB.headers() });
+      if(!r.ok) throw new Error('pins '+r.status);
+      const rows = await r.json();
+      const map = {}; rows.forEach(x => { map[x.player] = x.hash; });
+      lsSet('pins', map);
+      return map;
+    }catch(e){ return lsGet('pins') || {}; }
+  }
+  return lsGet('pins') || {};
+}
+async function savePin(player, hash){
+  if(SB.on){
+    const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/pins`, {
+      method:'POST', headers:{ ...SB.headers(), 'Prefer':'return=minimal' },
+      body: JSON.stringify({ player, hash }),
+    });
+    if(r.status === 409) throw new Error('bestaat-al');
+    if(!r.ok) throw new Error('pin opslaan mislukt ('+r.status+')');
+  }
+  const map = lsGet('pins') || {}; map[player] = hash; lsSet('pins', map);
+}
+
+/* ---------- score-logica ---------- */
+function judgeTop3(pred, slots, top3, near, hits){
+  let sub = 0, exact = 0;
+  const at = pos => top3.find(r => r.pos === pos)?.driverId || null;
+  const inTop = id => top3.some(r => r.driverId === id);
+  for(const [key,pos,pts] of slots){
+    const pick = pred[key];
+    if(!pick) continue;
+    if(at(pos) === pick){ sub += pts; exact++; hits[key]='exact'; }
+    else if(inTop(pick)){ sub += near; hits[key]='near'; }
+    else hits[key] = 'miss';
+  }
+  return { sub, exact };
+}
+
+function scoreRound(pred, result, quali){
+  // result: {rows, fl} of null · quali: top-3 array of null
+  const R = SCORING.race, Q = SCORING.quali;
+  const out = { race:0, quali:0, total:0, exact:0, qexact:0, perfect:false, joker:!!pred.joker, hits:{} };
+  if(quali && quali.length){
+    const j = judgeTop3(pred, [['q1',1,Q.p1],['q2',2,Q.p2],['q3',3,Q.p3]], quali, Q.near, out.hits);
+    out.quali = j.sub; out.qexact = j.exact;
+    if(j.exact === 3) out.quali += Q.perfect;
+  }
+  if(result){
+    const top3 = result.rows.filter(r => r.pos <= 3);
+    const j = judgeTop3(pred, [['p1',1,R.p1],['p2',2,R.p2],['p3',3,R.p3]], top3, R.near, out.hits);
+    out.race = j.sub; out.exact = j.exact;
+    if(j.exact === 3){ out.race += R.perfect; out.perfect = true; }
+    if(pred.fl && result.fl){
+      out.hits.fl = (pred.fl === result.fl) ? 'exact' : 'miss';
+      if(pred.fl === result.fl) out.race += R.fl;
+    }
+    if(pred.joker) out.race *= 2;   // joker telt alleen voor de race-punten
+  }
+  out.total = out.race + out.quali;
+  return out;
+}
+
+/* ============================================================
+   App-state & router
+   ============================================================ */
+const S = {
+  view: 'race', me: lsGet('me') || null,
+  season: null, races: [], drivers: [], preds: [],
+  results: {}, qualis: {},         // per ronde
+  pins: {},                        // player → code-hash
+  constructors: [],
+  scored: null,                    // uitgerekend klassement
+  standTab: lsGet('standTab') || 'cup',
+};
+const driverById = id => S.drivers.find(d => d.id === id) || null;
+const playerById = id => CONFIG.players.find(p => p.id === id) || null;
+
+function setView(v){
+  S.view = v;
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  $('#view-'+v).classList.add('active');
+  $('#nav-'+v).classList.add('active');
+  window.scrollTo({top:0});
+  refreshSoft();                    // verse voorspellingen/uitslagen bij tabwissel
+  render();
+}
+
+/* ---------- tijd-helpers ---------- */
+const dayFmt = new Intl.DateTimeFormat('nl-NL',{weekday:'short'});
+const timeFmt = new Intl.DateTimeFormat('nl-NL',{hour:'2-digit',minute:'2-digit'});
+const dateFmt = new Intl.DateTimeFormat('nl-NL',{day:'numeric',month:'short'});
+const fullFmt = new Intl.DateTimeFormat('nl-NL',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+
+function sessEnd(s){ return new Date(s.start.getTime() + s.durMin*MIN); }
+function sessState(s){
+  const now = Date.now();
+  if(now < s.start.getTime()) return 'soon';
+  if(now < sessEnd(s).getTime()) return 'live';
+  return 'done';
+}
+function raceDone(r){ return Date.now() > r.raceStart.getTime() + 150*MIN; }
+function nextRace(){ return S.races.find(r => !raceDone(r)) || null; }
+function lastDoneRace(){ const d = S.races.filter(raceDone); return d.length ? d[d.length-1] : null; }
+function podiumLocked(r){ return Date.now() >= r.raceStart.getTime(); }
+function qualiLocked(r){ return r.qualiStart ? Date.now() >= r.qualiStart.getTime() : podiumLocked(r); }
+function raceOpen(r){ return r.qualiStart ? Date.now() >= r.qualiStart.getTime() + 60*MIN : true; }
+
+function predOf(round, player){
+  return S.preds.find(p => p.round === round && p.player === player) || null;
+}
+
+/* ---------- countdown ticker ---------- */
+setInterval(() => {
+  document.querySelectorAll('[data-cd]').forEach(el => {
+    const t = new Date(el.dataset.cd).getTime() - Date.now();
+    if(t <= 0){ el.innerHTML = cdBoxes(0); if(!el.dataset.fired){ el.dataset.fired='1'; render(); } return; }
+    el.innerHTML = cdBoxes(t);
+  });
+}, 1000);
+
+function cdBoxes(ms){
+  const s = Math.max(0, Math.floor(ms/1000));
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60), sec = s%60;
+  const box = (v,l) => `<div class="cd-box"><b>${String(v).padStart(2,'0')}</b><span>${l}</span></div>`;
+  return box(d,'dagen')+box(h,'uur')+box(m,'min')+box(sec,'sec');
+}
+
+/* ============================================================
+   RACE-tab
+   ============================================================ */
+function renderRace(){
+  const el = $('#view-race');
+  const nr = nextRace();
+  let html = '';
+
+  if(nr){
+    const liveSess = nr.sessions.find(s => sessState(s) === 'live');
+    const upcoming = nr.sessions.find(s => sessState(s) === 'soon');
+    html += `<div class="hero">
+      <div class="round">RONDE ${nr.round}/${S.races.length} · ${esc(nr.country).toUpperCase()}</div>
+      <h1>${flagOf(nr.country)} ${esc(nr.name)}</h1>
+      <div class="circuit">${esc(nr.circuit)} · ${esc(nr.locality)}</div>
+      ${liveSess
+        ? `<div style="margin-bottom:12px"><span class="live-pill">● Live · ${esc(liveSess.label)}</span>
+           <div class="small muted" style="margin-top:8px">${liveTimingNote()}</div></div>`
+        : upcoming
+          ? `<div class="cd-label">${esc(upcoming.label)} begint over</div><div class="countdown" data-cd="${upcoming.start.toISOString()}">${cdBoxes(upcoming.start-Date.now())}</div>`
+          : ''}
+      <div class="sessions">${nr.sessions.map(s => {
+        const st = sessState(s);
+        return `<div class="sess ${st === 'done' ? 'done' : st === 'live' ? 'live' : ''}">
+          <span class="s-day">${dayFmt.format(s.start)}</span>
+          <span class="s-name">${esc(s.label)}${st==='live' ? ' <span class="live-pill" style="font-size:9px;padding:1px 7px">live</span>' : ''}</span>
+          <span class="s-time">${timeFmt.format(s.start)}</span>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+
+    // voorspel-reminder (fase-bewust)
+    const myPred = S.me ? predOf(nr.round, S.me) : null;
+    let nudge = null;
+    if(!qualiLocked(nr) && (!myPred || !myPred.q1)) nudge = ['Kwali nog niet voorspeld!', 'Zet je kwalificatie-top-3 vast voor de kwali begint.'];
+    else if(raceOpen(nr) && !podiumLocked(nr) && (!myPred || !myPred.p1)) nudge = ['Race nog niet voorspeld!', 'De kwali is geweest — zet nu je race-top-3 en snelste ronde vast.'];
+    if(nudge){
+      html += `<div class="card" style="border-color:rgba(245,197,24,.4)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">⏱️</span>
+          <div style="flex:1"><b>${nudge[0]}</b><div class="small muted">${nudge[1]}</div></div>
+          <button class="tab-btn active" style="flex:0 0 auto;padding:8px 14px" onclick="setView('predict')">Voorspel →</button>
+        </div></div>`;
+    }
+  }
+
+  const lr = lastDoneRace();
+  if(lr){
+    const res = S.results[lr.round];
+    html += `<div class="card"><div class="checker"></div><h2>Laatste race · ${flagOf(lr.country)} ${esc(lr.name)}</h2>`;
+    if(res){
+      const medals = ['🥇','🥈','🥉'];
+      html += res.rows.slice(0,10).map((r,i) => `
+        <div class="res-row">
+          <span class="medal">${i<3 ? medals[i] : ''}</span>
+          <span class="pos">${r.pos}</span>
+          <span class="teambar" style="background:${teamColor(r.teamId)}"></span>
+          <span class="d-name">${esc(r.name)}<span class="d-team">${esc(r.team)}</span></span>
+          <span class="d-right">${esc(r.time).slice(0,12)}</span>
+        </div>`).join('');
+      if(res.fl){
+        const fld = driverById(res.fl);
+        if(fld) html += `<div class="small muted" style="margin-top:8px">⚡ Snelste ronde: <b style="color:var(--txt)">${esc(fld.name)}</b></div>`;
+      }
+      // punten van het clubje
+      const chips = CONFIG.players.map(p => {
+        const pr = predOf(lr.round, p.id);
+        const sc = pr ? scoreRound(pr, res, S.qualis[lr.round]) : null;
+        return `<span class="pchip">${p.emoji} ${esc(p.name)} <span class="v">${sc ? '+'+sc.total : '—'}</span></span>`;
+      }).join('');
+      html += `<div class="pts-chips">${chips}</div>`;
+    } else {
+      html += `<div class="loading">Uitslag wordt geladen zodra die beschikbaar is…</div>`;
+    }
+    html += `</div>`;
+  }
+
+  if(!nr && !lr) html = `<div class="loading">Geen races gevonden.</div>`;
+  el.innerHTML = html;
+}
+
+function liveTimingNote(){
+  if(CONFIG.openf1Key) return 'Live timing actief.';
+  return 'De sessie is bezig — kijk lekker op TV mee. Direct na afloop verschijnen hier de uitslag en jullie punten. <span class="muted">(Echte live timing kan later via een OpenF1-sleutel.)</span>';
+}
+
+/* ============================================================
+   KALENDER-tab
+   ============================================================ */
+function renderCalendar(){
+  const el = $('#view-calendar');
+  const nr = nextRace();
+  const rows = S.races.map(r => {
+    const done = raceDone(r);
+    const isNext = nr && r.round === nr.round;
+    const res = S.results[r.round];
+    const win = res ? res.rows.find(x => x.pos === 1) : null;
+    return `<div class="cal-row ${done ? 'past' : ''} ${isNext ? 'next' : ''}">
+      <span class="cal-flag">${flagOf(r.country)}</span>
+      <div class="cal-main">
+        <div class="cal-name">${esc(r.name)}${r.isSprint ? ' <span style="color:var(--gold);font-size:10px;font-family:var(--mono)">SPRINT</span>' : ''}</div>
+        <div class="cal-sub">Ronde ${r.round} · ${esc(r.locality)}, ${esc(r.country)}</div>
+      </div>
+      <div class="cal-right">
+        ${done
+          ? (win ? `<span class="win">🏆 ${esc(win.code || win.name)}</span>` : dateFmt.format(r.raceStart))
+          : `${dateFmt.format(r.raceStart)}<br><span class="small">${timeFmt.format(r.raceStart)}</span>`}
+      </div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="card"><h2>Seizoen ${S.season} · ${S.races.length} races</h2>${rows}</div>`;
+}
+
+/* ============================================================
+   VOORSPEL-tab
+   ============================================================ */
+function jokersLeft(player){
+  // joker is 'verbruikt' zodra de race van die ronde gestart is
+  const used = S.preds.filter(p => p.player === player && p.joker &&
+    S.races.some(r => r.round === p.round && podiumLocked(r))).length;
+  return Math.max(0, CONFIG.jokersPerSeason - used);
+}
+
+function renderPredict(){
+  const el = $('#view-predict');
+  const nr = nextRace();
+  if(!nr){ el.innerHTML = `<div class="card"><h2>Voorspellen</h2><p class="muted">Het seizoen zit erop! 🏁</p></div>`; return; }
+  if(!S.me){ el.innerHTML = `<div class="card"><h2>Voorspellen</h2><p class="muted">Kies eerst je profiel (rechtsboven).</p></div>`; return; }
+
+  const qLock = qualiLocked(nr), rOpen = raceOpen(nr), rLock = podiumLocked(nr);
+  const my = predOf(nr.round, S.me) || { season:S.season, round:nr.round, player:S.me,
+    q1:null,q2:null,q3:null, p1:null,p2:null,p3:null, fl:null, joker:false };
+  const qres = S.qualis[nr.round] || null;
+  const res = S.results[nr.round] || null;
+
+  const slotBtn = (key, label, disabled, cls='') => {
+    const d = my[key] ? driverById(my[key]) : null;
+    return `<button class="slot ${cls}" ${disabled ? 'disabled' : ''} onclick="openDriverPicker('${key}')">
+      <span class="slot-pos">${label}</span>
+      <span class="slot-main">${d
+        ? `<span class="slot-driver">${esc(d.name)}</span><span class="slot-team">${esc(d.team || '')}</span>`
+        : `<span class="slot-empty">Kies coureur…</span>`}</span>
+      ${d ? `<span class="teambar" style="background:${teamColor(d.teamId)}"></span>` : ''}
+      <span class="chev">›</span>
+    </button>`;
+  };
+
+  let html = `<div class="card">
+    <h2>${flagOf(nr.country)} ${esc(nr.name)} · Ronde ${nr.round}</h2>
+    <div class="lock-info">
+      ${qLock ? `<span class="lock-tag locked">🔒 Kwali-voorspelling vast</span>`
+              : `<span class="lock-tag">🔓 Kwali sluit ${nr.qualiStart ? fullFmt.format(nr.qualiStart) : '—'}</span>`}
+      ${!rOpen ? `<span class="lock-tag">⏳ Race-voorspelling opent na de kwali</span>`
+        : rLock ? `<span class="lock-tag locked">🔒 Race-voorspelling vast</span>`
+                : `<span class="lock-tag">🔓 Race sluit ${fullFmt.format(nr.raceStart)}</span>`}
+    </div>
+  </div>`;
+
+  // ---- fase 1: kwalificatie ----
+  html += `<div class="card"><h2>🕐 Kwalificatie · voorspel de top 3</h2>
+    <div class="slotgrid">
+      ${slotBtn('q1','Q1', qLock, 'p1')}${slotBtn('q2','Q2', qLock)}${slotBtn('q3','Q3', qLock)}
+    </div>`;
+  if(qLock && qres){
+    const sc = scoreRound(my, null, qres);
+    html += `<div class="small muted">Uitslag kwali: ${qres.map(q => esc(q.code || q.name)).join(' · ')}
+      — jij pakte <b style="color:var(--gold)">${sc.quali} punten</b></div>`;
+  } else if(qLock){
+    html += `<div class="small muted">Kwali bezig of uitslag onderweg…</div>`;
+  }
+  html += `</div>`;
+
+  // ---- fase 2: race ----
+  if(!rOpen){
+    html += `<div class="card" style="opacity:.75"><h2>🏁 Race · top 3 + snelste ronde</h2>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:26px">🔒</span>
+        <div class="small muted" style="line-height:1.5">Opent zodra de kwalificatie klaar is${nr.qualiStart ? ' (' + fullFmt.format(new Date(nr.qualiStart.getTime() + 60*MIN)) + ')' : ''}.<br>Eerst kwali voorspellen dus — daarna mag je hier los met de kennis van de grid.</div>
+      </div></div>`;
+  } else {
+    html += `<div class="card"><h2>🏁 Race · voorspel de top 3 + snelste ronde</h2>
+      <div class="slotgrid">
+        ${slotBtn('p1','P1', rLock, 'p1')}${slotBtn('p2','P2', rLock)}${slotBtn('p3','P3', rLock)}${slotBtn('fl','⚡ SR', rLock)}
+      </div>
+      <div class="joker-row">
+        <span style="font-size:22px">🃏</span>
+        <div class="jr-main"><b>Joker — dubbele racepunten</b>
+          <span class="small muted">Nog ${jokersLeft(S.me)} van ${CONFIG.jokersPerSeason} dit seizoen · telt niet voor kwalipunten</span></div>
+        <button class="toggle ${my.joker ? 'on' : ''}" ${rLock || (!my.joker && jokersLeft(S.me)<=0) ? 'disabled' : ''} onclick="toggleJoker()"></button>
+      </div>`;
+    if(rLock && res){
+      const sc = scoreRound(my, res, null);
+      html += `<div class="small muted">Race klaar — jij pakte <b style="color:var(--gold)">${sc.race} racepunten</b></div>`;
+    }
+    html += `</div>`;
+  }
+  html += `<div class="save-note" id="saveNote"></div>`;
+
+  // ---- de anderen ----
+  html += `<div class="card"><h2>Het clubje</h2>`;
+  html += CONFIG.players.filter(p => p.id !== S.me).map(p => {
+    const pr = predOf(nr.round, p.id);
+    const sc = pr && (qLock || rLock) ? scoreRound(pr, rLock ? res : null, qLock ? qres : null) : null;
+    let body = '';
+    // kwali-regel
+    if(!qLock){
+      body += `<div class="small muted" style="margin-top:4px">Kwali: ${pr && pr.q1 ? '✅ ingevuld — geheim tot de kwali' : '⏳ nog niet ingevuld'}</div>`;
+    } else if(pr){
+      body += chipRow('Kwali', [['Q1','q1'],['Q2','q2'],['Q3','q3']], pr, sc);
+    }
+    // race-regel
+    if(rOpen){
+      if(!rLock){
+        body += `<div class="small muted" style="margin-top:4px">Race: ${pr && pr.p1 ? '✅ ingevuld — geheim tot de start' : '⏳ nog niet ingevuld'}</div>`;
+      } else if(pr){
+        body += chipRow('Race', [['P1','p1'],['P2','p2'],['P3','p3'],['⚡','fl']], pr, sc, pr.joker);
+      }
+    }
+    if(!body) body = `<div class="small muted" style="margin-top:4px">Nog niets ingevuld</div>`;
+    return `<div class="other-pred"><div class="op-head">${p.emoji} ${esc(p.name)}
+      ${sc ? `<span class="pts">+${sc.total}</span>` : ''}</div>${body}</div>`;
+  }).join('');
+  html += `</div>`;
+
+  // ---- uitleg ----
+  const R = SCORING.race, Q = SCORING.quali;
+  html += `<div class="card"><h2>Zo scoor je punten</h2>
+    <div class="small muted" style="line-height:1.8">
+      <b style="color:var(--txt)">🕐 Kwalificatie</b> (invullen vóór de kwali)<br>
+      Q1 exact <b style="color:var(--txt)">${Q.p1}</b> · Q2 exact <b style="color:var(--txt)">${Q.p2}</b> · Q3 exact <b style="color:var(--txt)">${Q.p3}</b> · wel top 3, verkeerde plek <b style="color:var(--txt)">${Q.near}</b> · alle drie exact <b style="color:var(--gold)">+${Q.perfect}</b><br><br>
+      <b style="color:var(--txt)">🏁 Race</b> (opent ná de kwali)<br>
+      P1 exact <b style="color:var(--txt)">${R.p1}</b> · P2 exact <b style="color:var(--txt)">${R.p2}</b> · P3 exact <b style="color:var(--txt)">${R.p3}</b> · wel podium, verkeerde plek <b style="color:var(--txt)">${R.near}</b> · perfect podium <b style="color:var(--gold)">+${R.perfect}</b><br>
+      ⚡ Snelste raceronde goed <b style="color:var(--txt)">+${R.fl}</b> (bonus)<br>
+      🃏 Joker <b style="color:var(--gold)">racepunten ×2</b> (${CONFIG.jokersPerSeason}× per seizoen)
+    </div></div>`;
+
+  el.innerHTML = html;
+}
+
+function chipRow(label, slots, pr, sc, joker){
+  const h = sc ? sc.hits : {};
+  const chip = (lab, key) => {
+    const d = pr[key] ? driverById(pr[key]) : null;
+    const cls = h[key] === 'exact' ? 'hit' : h[key] === 'near' ? 'near' : '';
+    return `<span class="pick-chip ${cls}"><span class="pc-label">${lab}</span> ${d ? esc(d.code || d.family) : '—'}</span>`;
+  };
+  return `<div class="op-picks"><span class="pick-chip" style="border:none;background:none;padding-left:0">${label}:</span>
+    ${slots.map(([lab,key]) => chip(lab,key)).join('')}${joker ? '<span class="pick-chip near">🃏</span>' : ''}</div>`;
+}
+
+/* ---------- opslaan ---------- */
+let saveTimer = null;
+async function updateMyPred(patch){
+  const nr = nextRace(); if(!nr || !S.me) return;
+  const cur = predOf(nr.round, S.me) || { season:S.season, round:nr.round, player:S.me,
+    q1:null,q2:null,q3:null, p1:null,p2:null,p3:null, fl:null, joker:false };
+  const upd = { ...cur, ...patch, season:S.season, round:nr.round, player:S.me };
+  const i = S.preds.findIndex(p => p.round === nr.round && p.player === S.me);
+  if(i >= 0) S.preds[i] = upd; else S.preds.push(upd);
+  renderPredict();
+  const note = $('#saveNote'); if(note) note.textContent = 'Opslaan…';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try{
+      await savePred(upd);
+      const n = $('#saveNote'); if(n){ n.textContent = '✓ Opgeslagen'; setTimeout(()=>{ if(n.textContent==='✓ Opgeslagen') n.textContent=''; }, 2500); }
+    }catch(e){
+      const n = $('#saveNote'); if(n){ n.style.color='var(--red2)'; n.textContent = '⚠ Opslaan mislukt — check verbinding'; }
+    }
+  }, 400);
+}
+function toggleJoker(){
+  const nr = nextRace(); if(!nr) return;
+  const cur = predOf(nr.round, S.me);
+  updateMyPred({ joker: !(cur && cur.joker) });
+}
+
+/* ---------- driver picker ---------- */
+let pickerKey = null;
+function pickerLockedFor(nr, key){
+  if(key === 'q1' || key === 'q2' || key === 'q3') return qualiLocked(nr);
+  return !raceOpen(nr) || podiumLocked(nr);
+}
+function takenFor(my, key){
+  // binnen hetzelfde trio mag je een coureur maar één keer kiezen; ⚡ SR mag iedereen zijn
+  if(key === 'fl') return [];
+  const trio = key.startsWith('q') ? ['q1','q2','q3'] : ['p1','p2','p3'];
+  return trio.filter(k => k !== key).map(k => my[k]).filter(Boolean);
+}
+function openDriverPicker(key){
+  const nr = nextRace(); if(!nr) return;
+  if(pickerLockedFor(nr, key)) return;
+  pickerKey = key;
+  const my = predOf(nr.round, S.me) || {};
+  const labels = {q1:'Q1 — de polesitter', q2:'Q2', q3:'Q3', p1:'P1 — de racewinnaar', p2:'P2', p3:'P3', fl:'⚡ de snelste raceronde'};
+  const sheet = $('#pickerSheet');
+  sheet.innerHTML = `<h3>Kies ${labels[key]}</h3>
+    <input class="search" placeholder="Zoek coureur…" oninput="filterPicker(this.value)">
+    <div id="pickerList">${driverOptions('', takenFor(my, key))}</div>`;
+  $('#pickerOverlay').classList.add('open');
+}
+function driverOptions(q, takenDisabled){
+  const query = (q||'').toLowerCase();
+  return S.drivers
+    .filter(d => !query || d.name.toLowerCase().includes(query) || (d.team||'').toLowerCase().includes(query))
+    .map(d => {
+      const dis = takenDisabled && takenDisabled.includes(d.id);
+      return `<button class="drv-opt" ${dis ? 'disabled' : ''} onclick="pickDriver('${d.id}')">
+        <span class="num">${d.num || ''}</span>
+        <span class="teambar" style="background:${teamColor(d.teamId)}"></span>
+        <span class="d-name">${esc(d.name)}<span class="d-team">${esc(d.team || '')}${d.points ? ' · '+d.points+' ptn' : ''}</span></span>
+        ${dis ? '<span class="small muted">al gekozen</span>' : ''}
+      </button>`;
+    }).join('') || '<div class="loading">Geen coureurs gevonden</div>';
+}
+function filterPicker(q){
+  const nr = nextRace(); const my = predOf(nr.round, S.me) || {};
+  $('#pickerList').innerHTML = driverOptions(q, takenFor(my, pickerKey));
+}
+function pickDriver(id){
+  closeOverlays();
+  updateMyPred({ [pickerKey]: id });
+}
+function closeOverlays(){
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+}
+document.addEventListener('click', e => { if(e.target.classList && e.target.classList.contains('overlay')) closeOverlays(); });
+
+/* ============================================================
+   STAND-tab (Pitmuur Cup + WK)
+   ============================================================ */
+function computeCup(){
+  const rows = CONFIG.players.map(p => ({ player:p, total:0, exact:0, perfect:0, perRound:{} }));
+  for(const r of S.races){
+    const res = S.results[r.round] || null;
+    const quali = S.qualis[r.round] || null;
+    if(!res && !quali) continue;
+    for(const row of rows){
+      const pr = predOf(r.round, row.player.id);
+      if(!pr) continue;
+      const sc = scoreRound(pr, res, quali);
+      row.total += sc.total; row.exact += sc.exact + sc.qexact; if(sc.perfect) row.perfect++;
+      row.perRound[r.round] = sc.total;
+    }
+  }
+  rows.sort((a,b) => b.total - a.total || b.exact - a.exact);
+  return rows;
+}
+
+function setStandTab(t){ S.standTab = t; lsSet('standTab', t); renderStandings(); }
+
+function renderStandings(){
+  const el = $('#view-standings');
+  const t = S.standTab;
+  let html = `<div class="tabs-inline">
+    <button class="tab-btn ${t==='cup'?'active':''}" onclick="setStandTab('cup')">🏆 Cup</button>
+    <button class="tab-btn ${t==='wdc'?'active':''}" onclick="setStandTab('wdc')">Coureurs</button>
+    <button class="tab-btn ${t==='wcc'?'active':''}" onclick="setStandTab('wcc')">Teams</button>
+  </div>`;
+
+  if(t === 'cup'){
+    const cup = computeCup();
+    html += `<div class="card"><div class="checker"></div><h2>${esc(CONFIG.cupName)} · ${S.season}</h2>`;
+    html += cup.map((row,i) => `
+      <div class="cup-row ${i===0 && row.total>0 ? 'first' : ''}">
+        <span class="cup-rank">${i===0 && row.total>0 ? '👑' : i+1}</span>
+        <span class="cup-em">${row.player.emoji}</span>
+        <div class="cup-main">
+          <div class="cup-name">${esc(row.player.name)}</div>
+          <div class="cup-sub">${row.exact} exact · ${row.perfect}× perfect podium · 🃏 ${jokersLeft(row.player.id)} over</div>
+        </div>
+        <div class="cup-pts">${row.total}<span> ptn</span></div>
+      </div>`).join('');
+    html += `</div>`;
+
+    // race-matrix
+    const done = S.races.filter(r => S.results[r.round] || S.qualis[r.round]);
+    if(done.length){
+      const cup2 = computeCup();
+      const best = {};
+      for(const r of done){ best[r.round] = Math.max(...cup2.map(x => x.perRound[r.round] ?? -1)); }
+      html += `<div class="card"><h2>Per race</h2><div class="matrix-wrap"><table class="matrix">
+        <tr><th></th>${done.map(r => `<th>${flagOf(r.country)}<br>R${r.round}</th>`).join('')}<th>TOT</th></tr>
+        ${cup2.map(row => `<tr>
+          <td class="pname">${row.player.emoji} ${esc(row.player.name)}</td>
+          ${done.map(r => {
+            const v = row.perRound[r.round];
+            return `<td class="${v != null && v === best[r.round] && v > 0 ? 'best' : ''}">${v ?? '·'}</td>`;
+          }).join('')}
+          <td class="best">${row.total}</td>
+        </tr>`).join('')}
+      </table></div></div>`;
+    } else {
+      html += `<div class="banner">📊 Zodra de eerste race met voorspellingen erop zit, verschijnt hier jullie onderlinge stand per race.</div>`;
+    }
+  }
+
+  if(t === 'wdc'){
+    html += `<div class="card"><h2>WK-stand coureurs</h2>`;
+    html += S.drivers.filter(d => d.pos).map(d => `
+      <div class="res-row">
+        <span class="pos">${d.pos}</span>
+        <span class="teambar" style="background:${teamColor(d.teamId)}"></span>
+        <span class="d-name">${esc(d.name)}<span class="d-team">${esc(d.team)}</span></span>
+        <span class="d-right">${d.points} ptn</span>
+      </div>`).join('') || '<div class="loading">Nog geen stand</div>';
+    html += `</div>`;
+  }
+
+  if(t === 'wcc'){
+    html += `<div class="card"><h2>WK-stand constructeurs</h2>`;
+    html += S.constructors.map(c => `
+      <div class="res-row">
+        <span class="pos">${c.pos}</span>
+        <span class="teambar" style="background:${teamColor(c.id)}"></span>
+        <span class="d-name">${esc(c.name)}</span>
+        <span class="d-right">${c.points} ptn</span>
+      </div>`).join('') || '<div class="loading">Nog geen stand</div>';
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+/* ============================================================
+   Profiel
+   ============================================================ */
+let pinTarget = null, pinBuf = '', pinMode = 'verify', pinFirst = null;
+
+function openProfilePicker(firstRun){
+  pinTarget = null; pinBuf = '';
+  loadPins().then(m => { S.pins = m; });   // vers ophalen (code kan net op ander toestel gezet zijn)
+  const sheet = $('#profileSheet');
+  sheet.innerHTML = `<h3>${firstRun ? 'Welkom bij Parc Fermé! Wie ben jij?' : 'Wissel van profiel'}</h3>
+    <div class="profile-grid">
+      ${CONFIG.players.map(p => `<button class="profile-btn" onclick="startPin('${p.id}')">
+        <span class="em">${p.emoji}</span>${esc(p.name)}
+        ${S.pins && S.pins[p.id] ? '' : '<span class="small" style="color:var(--gold)">nieuw · maak je code</span>'}
+      </button>`).join('')}
+    </div>`;
+  $('#profileOverlay').classList.add('open');
+}
+
+function startPin(id){
+  pinTarget = id; pinBuf = ''; pinFirst = null;
+  pinMode = (S.pins && S.pins[id]) ? 'verify' : 'create';
+  renderPinScreen();
+}
+
+function renderPinScreen(){
+  const p = playerById(pinTarget);
+  const titles = { verify:'voer je code in', create:'kies je geheime code', repeat:'herhaal je code' };
+  const sub = pinMode === 'create'
+    ? `<div class="small muted" style="text-align:center;line-height:1.5;margin-bottom:2px">Eerste keer hier! Kies een 4-cijferige code.<br>Die blijft voorgoed jouw inlog — onthoud &rsquo;m goed.</div>`
+    : pinMode === 'repeat'
+    ? `<div class="small muted" style="text-align:center;margin-bottom:2px">Nog één keer, dan staat &rsquo;ie vast.</div>`
+    : '';
+  const keys = ['1','2','3','4','5','6','7','8','9','blank','0','back'];
+  $('#profileSheet').innerHTML = `
+    <h3 style="text-align:center">${p.emoji} ${esc(p.name)} · ${titles[pinMode]}</h3>
+    ${sub}
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="pin-err" id="pinErr"></div>
+    <div class="pinpad">${keys.map(k =>
+      k === 'blank' ? `<button class="blank"></button>` :
+      k === 'back'  ? `<button onclick="pinKey('back')">⌫</button>` :
+                      `<button onclick="pinKey('${k}')">${k}</button>`).join('')}
+    </div>
+    <button class="pin-back" onclick="openProfilePicker(false)">‹ ander profiel</button>`;
+  renderPinDots();
+}
+
+function renderPinDots(){
+  const el = $('#pinDots'); if(!el) return;
+  el.innerHTML = [0,1,2,3].map(i => `<span class="pin-dot ${i < pinBuf.length ? 'fill' : ''}"></span>`).join('');
+}
+
+function pinLogin(){
+  S.me = pinTarget; lsSet('me', pinTarget);
+  pinTarget = null; pinBuf = ''; pinFirst = null;
+  closeOverlays(); syncMeChip(); render();
+}
+
+function pinFail(msg){
+  pinBuf = '';
+  setTimeout(() => { const e = $('#pinErr'); if(e) e.textContent = msg; renderPinDots(); }, 180);
+}
+
+function pinKey(k){
+  if(!pinTarget) return;
+  const err = $('#pinErr');
+  if(k === 'back'){ pinBuf = pinBuf.slice(0,-1); renderPinDots(); return; }
+  if(pinBuf.length >= 4) return;
+  if(err) err.textContent = '';
+  pinBuf += k; renderPinDots();
+  if(pinBuf.length < 4) return;
+
+  if(pinMode === 'verify'){
+    if(pinHash(pinTarget, pinBuf) === S.pins[pinTarget]) pinLogin();
+    else pinFail('Verkeerde code — probeer het nog eens');
+  } else if(pinMode === 'create'){
+    pinFirst = pinBuf; pinBuf = ''; pinMode = 'repeat';
+    renderPinScreen();
+  } else { // repeat
+    if(pinBuf !== pinFirst){
+      pinMode = 'create'; pinFirst = null; pinBuf = '';
+      renderPinScreen();
+      const e = $('#pinErr'); if(e) e.textContent = 'Codes kwamen niet overeen — begin opnieuw';
+      return;
+    }
+    const h = pinHash(pinTarget, pinBuf);
+    const wie = pinTarget;
+    savePin(wie, h).then(() => { S.pins[wie] = h; pinLogin(); })
+      .catch(async e => {
+        if(String(e.message) === 'bestaat-al'){
+          S.pins = await loadPins();          // iemand was je op een ander toestel voor
+          pinMode = 'verify'; pinBuf = '';
+          renderPinScreen();
+          const el2 = $('#pinErr'); if(el2) el2.textContent = 'Er bestaat al een code voor dit profiel — voer die in';
+        } else {
+          pinMode = 'create'; pinFirst = null;
+          pinFail('Opslaan mislukt — check je internet en probeer opnieuw');
+        }
+      });
+  }
+}
+
+function syncMeChip(){
+  const p = S.me ? playerById(S.me) : null;
+  $('#meChip').innerHTML = p ? `<span class="em">${p.emoji}</span><span>${esc(p.name)}</span>` : `<span class="em">👤</span><span>kies profiel</span>`;
+}
+
+/* ============================================================
+   Data laden & boot
+   ============================================================ */
+async function loadOfficialData(){
+  const jobs = [];
+  for(const r of S.races){
+    if(raceDone(r) || podiumLocked(r)){
+      jobs.push(getResult(S.season, r.round, r.raceStart).then(x => { if(x) S.results[r.round] = x; }).catch(()=>{}));
+    }
+    if(r.qualiStart && Date.now() > r.qualiStart.getTime()){
+      jobs.push(getQualiTop3(S.season, r.round, r.qualiStart).then(x => { if(x) S.qualis[r.round] = x; }).catch(()=>{}));
+    }
+  }
+  await Promise.allSettled(jobs);
+}
+
+async function refreshSoft(){
+  try{
+    const preds = await loadPreds(S.season);
+    if(preds) S.preds = preds;
+    await loadOfficialData();
+    render();
+  }catch(e){ /* stil */ }
+}
+
+function render(){
+  if(!S.season) return;
+  $('#seasonBadge').textContent = S.season;
+  syncMeChip();
+  try{ renderRace(); }catch(e){ console.error(e); }
+  try{ renderPredict(); }catch(e){ console.error(e); }
+  try{ renderStandings(); }catch(e){ console.error(e); }
+  try{ renderCalendar(); }catch(e){ console.error(e); }
+}
+
+async function boot(){
+  if(S.me && !playerById(S.me)){ S.me = null; lsSet('me', null); }  // oud/onbekend profiel-id
+  if(!SB.on){
+    $('#storageBanner').innerHTML = `<div class="banner">🔧 <span><b>Demo-modus:</b> voorspellingen worden alleen op dit toestel bewaard.
+      Koppel gratis gedeelde opslag (zie handleiding) zodat jullie vieren elkaars voorspellingen zien.</span></div>`;
+  }
+  try{
+    const cal = await getCalendar();
+    S.season = cal.season; S.races = cal.races;
+    const [drivers, constructors, preds, pins] = await Promise.all([
+      getDrivers(S.season),
+      getConstructorStandings(S.season).catch(()=>[]),
+      loadPreds(S.season),
+      loadPins(),
+    ]);
+    S.drivers = drivers; S.constructors = constructors; S.preds = preds; S.pins = pins;
+    await loadOfficialData();
+    render();
+    if(!S.me) openProfilePicker(true);
+  }catch(e){
+    console.error(e);
+    document.querySelectorAll('.view').forEach(v => v.innerHTML =
+      `<div class="card"><h2>Oeps</h2><p class="muted">Kan de F1-data nu niet laden. Check je internet en ververs de pagina.</p></div>`);
+  }
+  // elke 3 min zacht verversen tijdens raceweekenden, anders elke 15 min
+  setInterval(() => {
+    const nr = nextRace();
+    const weekend = nr && nr.sessions.length && (Date.now() > nr.sessions[0].start.getTime() - 2*HOUR);
+    const last = lsGet('lastSoft') || 0;
+    const gap = weekend ? 3*MIN : 15*MIN;
+    if(Date.now() - last > gap){ lsSet('lastSoft', Date.now()); refreshSoft(); }
+  }, 30e3);
+}
+boot();
+
+</script>
+</body>
+</html>
