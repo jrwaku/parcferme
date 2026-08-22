@@ -1386,6 +1386,9 @@ function sessionsVoorRonde(alle, race){
     .sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
 }
 
+// bij een kwalificatie zijn duration en gap_to_leader lijsten [Q1,Q2,Q3] → neem de laatste echte waarde
+const laatsteWaarde = v => Array.isArray(v) ? (v.filter(x => x != null && x !== '').pop() ?? null) : v;
+
 const secToTijd = s => {
   if(s == null) return '—';
   const u = Math.floor(s/3600);
@@ -1396,7 +1399,7 @@ const secToTijd = s => {
 };
 
 async function bouwAnalyse(sessionKey){
-  const cache = lsGet('an:'+sessionKey);
+  const cache = lsGet('an2:'+sessionKey);
   if(cache) return cache;
 
   const drivers = await of1(`/drivers?session_key=${sessionKey}`);            await rustig();
@@ -1460,7 +1463,7 @@ async function bouwAnalyse(sessionKey){
   const klassement = (result||[]).sort((a,b)=>(a.position??99)-(b.position??99)).map(r => ({
     pos: r.position, num: r.driver_number, laps: r.number_of_laps,
     punten: r.points, dnf: !!r.dnf, dns: !!r.dns, dsq: !!r.dsq,
-    duur: r.duration, gap: r.gap_to_leader,
+    duur: laatsteWaarde(r.duration), gap: laatsteWaarde(r.gap_to_leader),
   }));
 
   const samenvatting = {
@@ -1470,11 +1473,11 @@ async function bouwAnalyse(sessionKey){
     verloop, maxLap,
   };
   // alleen de laatste 6 sessies bewaren (localStorage is klein)
-  const bewaard = (lsGet('an:index') || []).filter(k => k !== sessionKey);
+  const bewaard = (lsGet('an2:index') || []).filter(k => k !== sessionKey);
   bewaard.push(sessionKey);
-  while(bewaard.length > 6){ try{ localStorage.removeItem(LS+'an:'+bewaard.shift()); }catch(e){} }
-  lsSet('an:index', bewaard);
-  lsSet('an:'+sessionKey, samenvatting);
+  while(bewaard.length > 6){ try{ localStorage.removeItem(LS+'an2:'+bewaard.shift()); }catch(e){} }
+  lsSet('an2:index', bewaard);
+  lsSet('an2:'+sessionKey, samenvatting);
   return samenvatting;
 }
 
@@ -1545,7 +1548,8 @@ function renderAnalyse(){
       const p = d.per[r.num] || {};
       const status = r.dnf ? 'DNF' : r.dsq ? 'DSQ' : r.dns ? 'DNS' : null;
       const rechts = status ? status
-        : (r.pos === 1 ? secToTijd(r.duur) : (r.gap != null ? '+'+(typeof r.gap === 'number' ? r.gap.toFixed(3) : r.gap) : '—'));
+        : (r.pos === 1 ? secToTijd(r.duur)
+           : (r.gap != null && r.gap !== '' ? '+'+(isNaN(+r.gap) ? r.gap : (+r.gap).toFixed(3)) : '—'));
       return `<div class="res-row" ${mijnNums.has(r.num)?'style="background:rgba(245,197,24,.07);border-radius:8px"':''}>
         <span class="pos">${r.pos ?? '–'}</span>
         <span class="teambar" style="background:${kleur(r.num)}"></span>
