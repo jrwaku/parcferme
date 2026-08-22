@@ -1788,7 +1788,18 @@ async function liveTik(){
   if(S.view === 'live') renderLive();
 }
 
+async function laadBaan(){
+  if(L.baan || L.baanBezig) return;
+  L.baanBezig = true;
+  try{
+    L.baan = await baanVorm(L.sessionKey, L.sessie && L.sessie.circuit_key);
+  }catch(e){ /* volgende tik opnieuw */ }
+  L.baanBezig = false;
+  if(S.view === 'live') renderLive();
+}
+
 async function liveKaartTik(T){
+  if(!L.baan){ await laadBaan(); }
   const a = new Date(new Date(T).getTime() - 2500);
   const loc = await of1L(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
   for(const p of loc) if(p.x || p.y) L.loc[p.driver_number] = {x:p.x, y:p.y};
@@ -1815,7 +1826,6 @@ async function liveStart(sessionKey, bron, startTijd){
       naam:d.full_name || d.broadcast_name || '', team:d.team_name || '',
       kleur: d.team_colour ? '#'+d.team_colour : '#5c5c6c' };
   }
-  baanVorm(sessionKey, L.sessie && L.sessie.circuit_key).then(v => { L.baan = v; if(S.view==='live') renderLive(); }).catch(()=>{});
   clearInterval(L.timer);
   L.timer = setInterval(() => {
     if(L.bron === 'replay') L.klok = new Date(L.klok.getTime() + 5000 * L.snelheid);
@@ -1825,7 +1835,7 @@ async function liveStart(sessionKey, bron, startTijd){
   renderLive();
 }
 function liveStop(){ L.aan=false; clearInterval(L.timer); L.timer=null; }
-function liveKaartToggle(){ L.kaartOpen = !L.kaartOpen; renderLive(); if(L.kaartOpen) liveTik(); }
+function liveKaartToggle(){ L.kaartOpen = !L.kaartOpen; renderLive(); if(L.kaartOpen){ laadBaan(); liveTik(); } }
 function liveKiesCoureur(num){ L.gekozen = (L.gekozen === num ? null : num); L.tel = null; renderLive(); if(L.gekozen) liveTik(); }
 
 /* ---- voorlopige punten: hoe staan jullie ervoor als het NU zo eindigt? ---- */
