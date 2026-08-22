@@ -1800,12 +1800,14 @@ async function laadBaan(){
 
 async function liveKaartTik(T){
   if(!L.baan){ await laadBaan(); }
-  const a = new Date(new Date(T).getTime() - 2500);
+  const venster = L.bron === 'replay' ? Math.max(2500, 1200 * L.snelheid) : 2500;
+  const a = new Date(new Date(T).getTime() - venster);
   const loc = await of1L(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
   for(const p of loc) if(p.x || p.y) L.loc[p.driver_number] = {x:p.x, y:p.y};
 }
 async function liveTelemetrieTik(T){
-  const a = new Date(new Date(T).getTime() - 3000);
+  const vensterT = L.bron === 'replay' ? Math.max(3000, 1200 * L.snelheid) : 3000;
+  const a = new Date(new Date(T).getTime() - vensterT);
   const cd = await of1L(`/car_data?session_key=${L.sessionKey}&driver_number=${L.gekozen}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
   if(cd.length) L.tel = cd[cd.length-1];
 }
@@ -1818,7 +1820,9 @@ async function liveStart(sessionKey, bron, startTijd){
   L.sessie = alle.find(s => s.session_key === sessionKey) || null;
   if(L.bron === 'replay'){
     L.klok = new Date(startTijd || (L.sessie ? L.sessie.date_start : Date.now()));
-    L.snelheid = 60;                                  // 1 seconde = 1 minuut
+    const p = new URLSearchParams(location.search);
+    L.snelheid = parseInt(p.get('snelheid'), 10) || 6;   // standaard: 6× echte tijd
+    L.eind = L.sessie ? new Date(L.sessie.date_end).getTime() : null;
   }
   L.coureurs = {};
   for(const d of await of1L(`/drivers?session_key=${sessionKey}`).catch(()=>[])){
@@ -1828,7 +1832,10 @@ async function liveStart(sessionKey, bron, startTijd){
   }
   clearInterval(L.timer);
   L.timer = setInterval(() => {
-    if(L.bron === 'replay') L.klok = new Date(L.klok.getTime() + 5000 * L.snelheid);
+    if(L.bron === 'replay'){
+      const volgende = L.klok.getTime() + 5000 * L.snelheid;
+      L.klok = new Date(L.eind ? Math.min(volgende, L.eind) : volgende);
+    }
     liveTik();
   }, 5000);
   liveTik();
