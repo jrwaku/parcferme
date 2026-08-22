@@ -1215,7 +1215,8 @@ function openProfilePicker(firstRun){
         <span class="em">${p.emoji}</span>${esc(p.name)}
         ${S.pins && S.pins[p.id] ? '' : '<span class="small" style="color:var(--gold)">nieuw · maak je code</span>'}
       </button>`).join('')}
-    </div>`;
+    </div>
+    <button class="pin-back" onclick="openSleutelScherm()">🔑 Live-sleutel instellen</button>`;
   $('#profileOverlay').classList.add('open');
 }
 
@@ -1696,16 +1697,79 @@ const L = {
   sinds:{}, klok:null, snelheid:1, timer:null, fout:null, laatsteUpdate:null,
 };
 
-function of1Headers(){
-  return CONFIG.openf1Key ? { 'Authorization': 'Bearer ' + CONFIG.openf1Key } : {};
+/* De sponsorsleutel staat ALLEEN op dit toestel (localStorage), nooit in de
+   openbare broncode. OpenF1 documenteert niet hoe je hem moet meesturen, dus
+   proberen we de gangbare manieren en onthouden we welke werkt. */
+const SLEUTEL_STIJLEN = ['bearer', 'apikey', 'x-api-key', 'query'];
+function liveSleutel(){ return lsGet('of1key') || CONFIG.openf1Key || ''; }
+function liveStijl(){ return lsGet('of1stijl') || 'bearer'; }
+function bouwVerzoek(pad, stijl){
+  const k = liveSleutel();
+  if(!k) return { url: OF1 + pad, opts: {} };
+  if(stijl === 'query')     return { url: OF1 + pad + (pad.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(k), opts: {} };
+  if(stijl === 'apikey')    return { url: OF1 + pad, opts: { headers: { 'apikey': k } } };
+  if(stijl === 'x-api-key') return { url: OF1 + pad, opts: { headers: { 'x-api-key': k } } };
+  return { url: OF1 + pad, opts: { headers: { 'Authorization': 'Bearer ' + k } } };
 }
+function of1Headers(){ return bouwVerzoek('', liveStijl()).opts.headers || {}; }
+
 async function of1L(pad){
-  const r = await fetch(OF1 + pad, { headers: of1Headers() });
-  if(r.status === 404) return [];
-  if(r.status === 401 || r.status === 403) throw new Error('geen toegang tot live data (sleutel?)');
-  if(!r.ok) throw new Error('OpenF1 ' + r.status);
-  return r.json();
+  const k = liveSleutel();
+  const stijlen = k ? [liveStijl(), ...SLEUTEL_STIJLEN.filter(x => x !== liveStijl())] : ['bearer'];
+  let laatsteFout = null;
+  for(const stijl of stijlen){
+    const { url, opts } = bouwVerzoek(pad, stijl);
+    const r = await fetch(url, opts);
+    if(r.status === 404) return [];
+    if(r.status === 401 || r.status === 403){
+      laatsteFout = new Error('sleutel geweigerd (' + r.status + ')');
+      continue;                                   // volgende manier proberen
+    }
+    if(r.status === 429) throw new Error('te veel verzoeken — even rustig aan');
+    if(!r.ok){ laatsteFout = new Error('OpenF1 ' + r.status); break; }
+    if(k && stijl !== liveStijl()) lsSet('of1stijl', stijl);   // deze werkt → onthouden
+    return r.json();
+  }
+  throw laatsteFout || new Error('OpenF1 onbereikbaar');
 }
+
+/* instelscherm voor de sleutel */
+function openSleutelScherm(){
+  const huidig = liveSleutel();
+  $('#profileSheet').innerHTML = `
+    <h3>🔑 Live-sleutel</h3>
+    <div class="small muted" style="line-height:1.5;margin-bottom:12px">
+      Plak hier je OpenF1-sponsorsleutel. Die blijft <b>alleen op dit toestel</b> —
+      hij komt niet in de broncode en niemand anders kan erbij.
+      Zonder sleutel werkt de app gewoon, alleen zonder live data tijdens sessies.
+    </div>
+    <input class="search" id="sleutelVeld" type="password" autocomplete="off"
+      placeholder="${huidig ? '•••••• (er staat er al een)' : 'plak je sleutel'}">
+    <div class="pin-err" id="sleutelUitslag" style="text-align:left;min-height:20px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="tab-btn active" style="flex:1" onclick="sleutelOpslaan()">Opslaan en testen</button>
+      ${huidig ? '<button class="tab-btn" style="flex:0 0 auto" onclick="sleutelWissen()">Wissen</button>' : ''}
+    </div>
+    <button class="pin-back" onclick="closeOverlays()">sluiten</button>`;
+  $('#profileOverlay').classList.add('open');
+}
+async function sleutelOpslaan(){
+  const v = ($('#sleutelVeld').value || '').trim();
+  const uit = $('#sleutelUitslag');
+  if(!v){ uit.textContent = 'Nog niets ingevuld.'; return; }
+  lsSet('of1key', v); lsSet('of1stijl', 'bearer');
+  uit.style.color = 'var(--dim)'; uit.textContent = 'Testen…';
+  try{
+    await of1L('/sessions?year=' + S.season);
+    uit.style.color = 'var(--green)';
+    uit.textContent = '✓ Opgeslagen. Manier: ' + liveStijl() + '. Tijdens de sessie schakelt hij vanzelf live.';
+  }catch(e){
+    uit.style.color = 'var(--red2)';
+    uit.textContent = '⚠ ' + e.message + ' — controleer of je hem goed hebt gekopieerd.';
+  }
+}
+function sleutelWissen(){ try{ localStorage.removeItem(LS+'of1key'); localStorage.removeItem(LS+'of1stijl'); }catch(e){}
+  openSleutelScherm(); }
 const isoKort = d => new Date(d).toISOString().slice(0,19);
 
 // verzoeken netjes achter elkaar, met tussenpozen — anders slaat de snelheidslimiet toe
