@@ -1691,7 +1691,7 @@ async function laadAnalyseSessies(){
 const L = {
   aan:false, bron:'live', sessionKey:null, sessie:null,
   coureurs:{}, pos:{}, iv:{}, band:{}, pits:{}, loc:{},
-  meldingen:[], weer:null, ronde:null, maxRonde:null,
+  meldingen:[], weer:null, ronde:null, maxRonde:null, beste:{}, laatste:{}, rondeVan:{},
   baan:null, kaartOpen:false, gekozen:null, tel:null,
   sinds:{}, klok:null, snelheid:1, timer:null, fout:null, laatsteUpdate:null,
 };
@@ -1746,13 +1746,14 @@ async function liveTik(){
     const na = sleutel => L.sinds[sleutel] ? `&date>${isoKort(L.sinds[sleutel])}` : '';
     const tot = `&date<=${isoKort(T)}`;
 
-    const [pos, iv, st, pit, rc, we] = await Promise.all([
+    const [pos, iv, st, pit, rc, we, lp] = await Promise.all([
       of1L(`/position?session_key=${K}${na('pos')}${tot}`).catch(()=>[]),
       of1L(`/intervals?session_key=${K}${na('iv')}${tot}`).catch(()=>[]),
       of1L(`/stints?session_key=${K}`).catch(()=>[]),
       of1L(`/pit?session_key=${K}`).catch(()=>[]),
       of1L(`/race_control?session_key=${K}${na('rc')}${tot}`).catch(()=>[]),
       of1L(`/weather?session_key=${K}${na('we')}${tot}`).catch(()=>[]),
+      of1L(`/laps?session_key=${K}${L.sinds.lp ? `&date_start>${isoKort(L.sinds.lp)}` : ''}`).catch(()=>[]),
     ]);
 
     for(const p of pos){ L.pos[p.driver_number] = p.position; L.sinds.pos = p.date; }
@@ -1764,6 +1765,14 @@ async function liveTik(){
     const telling = {};
     for(const p of pit) telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
     L.pits = telling;
+    for(const l of lp){
+      if(l.date_start) L.sinds.lp = l.date_start;
+      if(l.lap_number) L.rondeVan[l.driver_number] = Math.max(L.rondeVan[l.driver_number]||0, l.lap_number);
+      if(l.lap_duration == null || l.is_pit_out_lap) continue;
+      L.laatste[l.driver_number] = l.lap_duration;
+      if(L.beste[l.driver_number] == null || l.lap_duration < L.beste[l.driver_number])
+        L.beste[l.driver_number] = l.lap_duration;
+    }
     for(const m of rc){
       L.meldingen.unshift(m); L.sinds.rc = m.date;
       if(m.lap_number) L.ronde = Math.max(L.ronde||0, m.lap_number);
@@ -1771,12 +1780,8 @@ async function liveTik(){
     L.meldingen = L.meldingen.slice(0, 8);
     if(we.length){ L.weer = we[we.length-1]; L.sinds.we = we[we.length-1].date; }
 
-    // ronde afleiden uit de laatste rondes van de leider
-    const leider = Object.entries(L.pos).find(([,p]) => p === 1);
-    if(leider){
-      const lp = await of1L(`/laps?session_key=${K}&driver_number=${leider[0]}`).catch(()=>[]);
-      if(lp.length) L.ronde = Math.max(L.ronde||0, ...lp.map(x=>x.lap_number||0));
-    }
+    const rondes = Object.values(L.rondeVan);
+    if(rondes.length) L.ronde = Math.max(L.ronde||0, ...rondes);
 
     if(L.kaartOpen) await liveKaartTik(T);
     if(L.gekozen) await liveTelemetrieTik(T);
@@ -1816,6 +1821,7 @@ async function liveTelemetrieTik(T){
 async function liveStart(sessionKey, bron, startTijd){
   L.aan = true; L.bron = bron || 'live'; L.sessionKey = sessionKey;
   L.pos={}; L.iv={}; L.band={}; L.pits={}; L.loc={}; L.meldingen=[]; L.sinds={}; L.ronde=null;
+  L.beste={}; L.laatste={}; L.rondeVan={};
   const alle = await of1Sessions(S.season).catch(()=>[]);
   L.sessie = alle.find(s => s.session_key === sessionKey) || null;
   if(L.bron === 'replay'){
@@ -1910,15 +1916,25 @@ function renderLive(){
   } else {
     html += `<div class="toren">` + opVolgorde.map(r => {
       const b = L.band[r.num], iv = L.iv[r.num] || {};
-      const gapTxt = r.pos === 1 ? 'LEIDER'
-        : (iv.iv != null ? '+' + (isNaN(+iv.iv) ? iv.iv : (+iv.iv).toFixed(3)) : '—');
-      const totTxt = r.pos === 1 ? '' : (iv.gap != null && !isNaN(+iv.gap) ? '+' + (+iv.gap).toFixed(1) : '');
+      const heeftGap = iv.iv != null && !isNaN(+iv.iv);
+      const beste = L.beste[r.num], laatste = L.laatste[r.num];
+      let gapTxt, totTxt;
+      if(heeftGap){                                  // race: interval + gat tot leider
+        gapTxt = r.pos === 1 ? 'LEIDER' : '+' + (+iv.iv).toFixed(3);
+        totTxt = r.pos === 1 ? (laatste ? secToTijd(laatste) : '')
+               : (iv.gap != null && !isNaN(+iv.gap) ? '+' + (+iv.gap).toFixed(1) : '');
+      } else {                                        // kwali/training: beste ronde
+        gapTxt = beste ? secToTijd(beste) : '—';
+        totTxt = laatste && beste && laatste !== beste ? 'laatst ' + secToTijd(laatste) : '';
+      }
+      const bandLeeftijd = b && b.leeftijd != null && L.rondeVan[r.num]
+        ? b.leeftijd + Math.max(0, L.rondeVan[r.num] - (b.van||1)) : null;
       return `<button class="tr-row ${L.gekozen===r.num?'open':''}" onclick="liveKiesCoureur(${r.num})">
         <span class="tr-pos">${r.pos}</span>
         <span class="teambar" style="background:${kleur(r.num)}"></span>
         <span class="tr-code">${esc(code(r.num))}</span>
-        <span class="tr-band">${b ? `<span class="band-dot" style="background:${BAND_KLEUR[b.band]||BAND_KLEUR.UNKNOWN}"></span>${b.leeftijd!=null?b.leeftijd:''}` : ''}</span>
-        <span class="tr-pit">${L.pits[r.num] ? '🔧'+L.pits[r.num] : ''}</span>
+        <span class="tr-band">${b ? `<span class="band-dot" style="background:${BAND_KLEUR[b.band]||BAND_KLEUR.UNKNOWN}"></span>${bandLeeftijd ? bandLeeftijd : ''}` : ''}</span>
+        <span class="tr-pit">${L.pits[r.num] ? 'P'+L.pits[r.num] : ''}</span>
         <span class="tr-gap">${esc(gapTxt)}<span class="tr-tot">${esc(totTxt)}</span></span>
       </button>` + (L.gekozen === r.num ? telemetrieBlok(r.num) : '');
     }).join('') + `</div>`;
