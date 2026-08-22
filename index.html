@@ -102,7 +102,7 @@ main{max-width:560px; margin:0 auto; padding:14px 14px 24px}
 .pos{font-family:var(--mono); width:26px; font-size:13px; color:var(--dim); text-align:right}
 .teambar{width:4px; height:22px; border-radius:2px; background:var(--faint)}
 .d-name{flex:1; font-weight:600; font-size:14px}
-.d-team{font-size:11px; color:var(--faint); display:block; font-weight:400}
+.d-team{font-size:11px; color:var(--faint); display:block; font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .d-right{font-family:var(--mono); font-size:12px; color:var(--dim)}
 .medal{font-size:15px; width:22px; text-align:center}
 /* ---------- predictions ---------- */
@@ -203,10 +203,10 @@ nav{
 }
 nav button{
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-  background:none; border:none; color:var(--faint); font-family:inherit; font-size:10px;
+  background:none; border:none; color:var(--faint); font-family:inherit; font-size:9px;
   font-weight:700; letter-spacing:.5px; cursor:pointer; text-transform:uppercase;
 }
-nav button svg{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+nav button svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
 nav button.active{color:#fff}
 nav button.active .nv-ic{color:var(--red2)}
 /* ---------- overlays ---------- */
@@ -286,6 +286,7 @@ a{color:var(--blue)}
   <section id="view-race" class="view active"><div class="loading">Data laden…</div></section>
   <section id="view-predict" class="view"><div class="loading">Data laden…</div></section>
   <section id="view-standings" class="view"><div class="loading">Data laden…</div></section>
+  <section id="view-analyse" class="view"></section>
   <section id="view-calendar" class="view"><div class="loading">Data laden…</div></section>
 </main>
 
@@ -298,6 +299,9 @@ a{color:var(--blue)}
   </button>
   <button id="nav-standings" onclick="setView('standings')">
     <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0zM7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3"/></svg></span>Stand
+  </button>
+  <button id="nav-analyse" onclick="setView('analyse')">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg></span>Analyse
   </button>
   <button id="nav-calendar" onclick="setView('calendar')">
     <span class="nv-ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>Kalender
@@ -653,6 +657,7 @@ const S = {
   constructors: [],
   scored: null,                    // uitgerekend klassement
   standTab: lsGet('standTab') || 'cup',
+  anSessies: [], anKey: null, anNaam: '', anData: null, anFout: null,
 };
 const driverById = id => S.drivers.find(d => d.id === id) || null;
 const playerById = id => CONFIG.players.find(p => p.id === id) || null;
@@ -1301,6 +1306,7 @@ function render(){
   try{ renderRace(); }catch(e){ console.error(e); }
   try{ renderPredict(); }catch(e){ console.error(e); }
   try{ renderStandings(); }catch(e){ console.error(e); }
+  try{ renderAnalyse(); }catch(e){ console.error(e); }
   try{ renderCalendar(); }catch(e){ console.error(e); }
 }
 
@@ -1328,6 +1334,8 @@ async function boot(){
     document.querySelectorAll('.view').forEach(v => v.innerHTML =
       `<div class="card"><h2>Oeps</h2><p class="muted">Kan de F1-data nu niet laden. Check je internet en ververs de pagina.</p></div>`);
   }
+  laadAnalyseSessies();          // op de achtergrond, blokkeert niets
+
   // onverstuurde invoer opnieuw proberen zodra dat kan
   window.addEventListener('online', () => retryOutbox());
   document.addEventListener('visibilitychange', () => {
@@ -1347,6 +1355,289 @@ async function boot(){
   }, 30e3);
 }
 boot();
+
+/* ============================================================
+   ANALYSE — sessiedata van OpenF1 (gratis vanaf ~30 min na afloop)
+   Ruwe data wordt NIET bewaard (een race is ~550 kB); we rekenen
+   er meteen een compacte samenvatting uit en bewaren alleen die.
+   ============================================================ */
+const OF1 = 'https://api.openf1.org/v1';
+
+async function of1(pad){
+  const r = await fetch(OF1 + pad);
+  if(r.status === 404) return [];
+  if(!r.ok) throw new Error('OpenF1 ' + r.status);
+  return r.json();
+}
+const rustig = () => new Promise(r => setTimeout(r, 350));   // binnen 3 verzoeken/sec blijven
+
+// alle sessies van het seizoen (klein, 6 uur cachen)
+async function of1Sessions(season){
+  const d = await cachedJSON(`${OF1}/sessions?year=${season}`, 6*HOUR);
+  return Array.isArray(d) ? d : [];
+}
+
+// welke OpenF1-sessies horen bij onze ronde? (matchen op datum)
+function sessionsVoorRonde(alle, race){
+  const dag = 24*HOUR;
+  return alle
+    .filter(s => Math.abs(new Date(s.date_start) - race.raceStart) < 4*dag)
+    .filter(s => ['Race','Qualifying','Sprint','Sprint Qualifying'].includes(s.session_name))
+    .sort((a,b) => new Date(a.date_start) - new Date(b.date_start));
+}
+
+const secToTijd = s => {
+  if(s == null) return '—';
+  const u = Math.floor(s/3600);
+  const m = Math.floor((s - u*3600)/60);
+  const rest = (s - u*3600 - m*60).toFixed(3).padStart(6,'0');
+  if(u) return `${u}:${String(m).padStart(2,'0')}:${rest}`;
+  return m ? `${m}:${rest}` : rest;
+};
+
+async function bouwAnalyse(sessionKey){
+  const cache = lsGet('an:'+sessionKey);
+  if(cache) return cache;
+
+  const drivers = await of1(`/drivers?session_key=${sessionKey}`);            await rustig();
+  const result  = await of1(`/session_result?session_key=${sessionKey}`);     await rustig();
+  const laps    = await of1(`/laps?session_key=${sessionKey}`);               await rustig();
+  const stints  = await of1(`/stints?session_key=${sessionKey}`);             await rustig();
+  const pits    = await of1(`/pit?session_key=${sessionKey}`);                await rustig();
+  let posities  = [];
+  try{ posities = await of1(`/position?session_key=${sessionKey}`); }catch(e){}
+
+  const dMap = {};
+  for(const d of drivers){
+    dMap[d.driver_number] = {
+      num: d.driver_number,
+      code: d.name_acronym || String(d.driver_number),
+      naam: d.full_name || d.broadcast_name || ('#'+d.driver_number),
+      team: d.team_name || '',
+      kleur: d.team_colour ? '#'+d.team_colour : '#5c5c6c',
+    };
+  }
+
+  // per coureur: beste ronde, gemiddelde, topsnelheid
+  const per = {};
+  let snelste = null;
+  for(const l of laps){
+    if(l.lap_duration == null || l.is_pit_out_lap) continue;
+    const p = per[l.driver_number] || (per[l.driver_number] = {beste:null, besteLap:null, som:0, n:0, top:0});
+    if(p.beste == null || l.lap_duration < p.beste){ p.beste = l.lap_duration; p.besteLap = l.lap_number; }
+    p.som += l.lap_duration; p.n++;
+    if(l.st_speed && l.st_speed > p.top) p.top = l.st_speed;
+    if(!snelste || l.lap_duration < snelste.tijd) snelste = {num:l.driver_number, tijd:l.lap_duration, lap:l.lap_number};
+  }
+  for(const k in per) per[k].gem = per[k].n ? per[k].som/per[k].n : null;
+
+  // positieverloop per ronde (afgeleid uit de positie-tijdlijn)
+  const maxLap = laps.reduce((m,l) => Math.max(m, l.lap_number||0), 0);
+  const lapTijd = {};                        // ronde → starttijd van de leider
+  for(const l of laps){
+    if(!l.date_start) continue;
+    const t = new Date(l.date_start).getTime();
+    if(!lapTijd[l.lap_number] || t < lapTijd[l.lap_number]) lapTijd[l.lap_number] = t;
+  }
+  const perCoureurPos = {};
+  for(const p of posities){
+    (perCoureurPos[p.driver_number] || (perCoureurPos[p.driver_number] = []))
+      .push({t:new Date(p.date).getTime(), pos:p.position});
+  }
+  for(const k in perCoureurPos) perCoureurPos[k].sort((a,b)=>a.t-b.t);
+  const verloop = [];
+  for(let lap = 1; lap <= maxLap; lap++){
+    const t = lapTijd[lap]; if(!t) continue;
+    const rij = {lap, pos:{}};
+    for(const k in perCoureurPos){
+      let laatste = null;
+      for(const rec of perCoureurPos[k]){ if(rec.t <= t) laatste = rec.pos; else break; }
+      if(laatste != null) rij.pos[k] = laatste;
+    }
+    verloop.push(rij);
+  }
+
+  const klassement = (result||[]).sort((a,b)=>(a.position??99)-(b.position??99)).map(r => ({
+    pos: r.position, num: r.driver_number, laps: r.number_of_laps,
+    punten: r.points, dnf: !!r.dnf, dns: !!r.dns, dsq: !!r.dsq,
+    duur: r.duration, gap: r.gap_to_leader,
+  }));
+
+  const samenvatting = {
+    sessionKey, gemaakt: Date.now(), coureurs: dMap, klassement, per, snelste,
+    stints: (stints||[]).map(s => ({num:s.driver_number, van:s.lap_start, tot:s.lap_end, band:s.compound, leeftijd:s.tyre_age_at_start})),
+    pits: (pits||[]).map(p => ({num:p.driver_number, lap:p.lap_number, duur:p.pit_duration})),
+    verloop, maxLap,
+  };
+  // alleen de laatste 6 sessies bewaren (localStorage is klein)
+  const bewaard = (lsGet('an:index') || []).filter(k => k !== sessionKey);
+  bewaard.push(sessionKey);
+  while(bewaard.length > 6){ try{ localStorage.removeItem(LS+'an:'+bewaard.shift()); }catch(e){} }
+  lsSet('an:index', bewaard);
+  lsSet('an:'+sessionKey, samenvatting);
+  return samenvatting;
+}
+
+/* ---------- Analyse: weergave ---------- */
+const BAND_KLEUR = { SOFT:'#e10600', MEDIUM:'#f5c518', HARD:'#e6e6e6',
+                     INTERMEDIATE:'#2fd06f', WET:'#4aa3ff', UNKNOWN:'#5c5c6c' };
+
+function setAnalyseSessie(key, naam){
+  S.anKey = key; S.anNaam = naam; lsSet('anKey', key);
+  S.anData = null; S.anFout = null; renderAnalyse();
+  bouwAnalyse(key)
+    .then(d => { S.anData = d; renderAnalyse(); })
+    .catch(e => { S.anFout = e.message; renderAnalyse(); });
+}
+
+function renderAnalyse(){
+  const el = $('#view-analyse');
+  const lijst = S.anSessies || [];
+  let html = '';
+
+  if(!lijst.length){
+    el.innerHTML = `<div class="card"><h2>Analyse</h2>
+      <p class="muted small">Nog geen sessiedata beschikbaar. Die verschijnt ongeveer een half uur
+      na afloop van elke sessie — dan staat hier de volledige ontleding van kwalificatie en race.</p></div>`;
+    return;
+  }
+
+  html += `<div class="tabs-inline" style="flex-wrap:wrap">${lijst.map(s =>
+    `<button class="tab-btn ${S.anKey===s.session_key?'active':''}" style="flex:1 1 45%"
+      onclick="setAnalyseSessie(${s.session_key}, '${esc(s.session_name)}')">
+      ${esc(s.session_name === 'Qualifying' ? 'Kwalificatie' : s.session_name)}</button>`).join('')}</div>`;
+
+  if(S.anFout){
+    html += `<div class="card"><h2>Even niet beschikbaar</h2>
+      <p class="muted small">${esc(S.anFout)}. Tijdens een sessie en tot een half uur erna houdt
+      OpenF1 de data achter een abonnement; daarna is alles gratis. Probeer het later nog eens.</p></div>`;
+    el.innerHTML = html; return;
+  }
+  if(!S.anKey){ html += `<div class="card"><p class="muted small">Kies hierboven een sessie.</p></div>`; el.innerHTML = html; return; }
+  if(!S.anData){ html += `<div class="loading">Sessiedata ophalen…</div>`; el.innerHTML = html; return; }
+
+  const d = S.anData, C = d.coureurs;
+  const naam = n => C[n] ? C[n].code : '#'+n;
+  const kleur = n => C[n] ? C[n].kleur : '#5c5c6c';
+
+  // welke coureurs staan in mijn voorspelling? (die lichten we uit)
+  const nr = nextRace() || lastDoneRace();
+  const mijn = (S.me && nr) ? (predOf(nr.round, S.me) || {}) : {};
+  const mijnIds = ['q1','q2','q3','p1','p2','p3','fl'].map(k => mijn[k]).filter(Boolean);
+  const mijnNums = new Set(S.drivers.filter(x => mijnIds.includes(x.id))
+    .map(x => parseInt(x.num,10)).filter(Boolean));
+
+  // --- snelste ronde ---
+  if(d.snelste){
+    html += `<div class="card"><div class="checker"></div><h2>Snelste ronde</h2>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span style="font-size:26px">⚡</span>
+        <div style="flex:1"><b style="font-size:17px">${esc(C[d.snelste.num]?.naam || naam(d.snelste.num))}</b>
+          <div class="small muted">${esc(C[d.snelste.num]?.team||'')} · ronde ${d.snelste.lap}</div></div>
+        <span style="font-family:var(--mono);font-size:19px;color:var(--gold)">${secToTijd(d.snelste.tijd)}</span>
+      </div></div>`;
+  }
+
+  // --- klassement ---
+  if(d.klassement.length){
+    html += `<div class="card"><h2>Uitslag</h2>`;
+    html += d.klassement.map(r => {
+      const p = d.per[r.num] || {};
+      const status = r.dnf ? 'DNF' : r.dsq ? 'DSQ' : r.dns ? 'DNS' : null;
+      const rechts = status ? status
+        : (r.pos === 1 ? secToTijd(r.duur) : (r.gap != null ? '+'+(typeof r.gap === 'number' ? r.gap.toFixed(3) : r.gap) : '—'));
+      return `<div class="res-row" ${mijnNums.has(r.num)?'style="background:rgba(245,197,24,.07);border-radius:8px"':''}>
+        <span class="pos">${r.pos ?? '–'}</span>
+        <span class="teambar" style="background:${kleur(r.num)}"></span>
+        <span class="d-name">${esc(C[r.num]?.naam || naam(r.num))}
+          <span class="d-team">${esc(C[r.num]?.team||'')}${p.beste ? ' · beste '+secToTijd(p.beste) : ''}${p.top ? ' · '+p.top+' km/u' : ''}</span></span>
+        <span class="d-right" ${status?'style="color:var(--red2)"':''}>${esc(String(rechts)).slice(0,11)}</span>
+      </div>`;
+    }).join('');
+    html += `</div>`;
+  }
+
+  // --- bandenstints ---
+  if(d.stints.length && d.maxLap){
+    const perC = {};
+    for(const s of d.stints) (perC[s.num] || (perC[s.num]=[])).push(s);
+    const volgorde = d.klassement.length ? d.klassement.map(r=>r.num) : Object.keys(perC).map(Number);
+    html += `<div class="card"><h2>Bandenstrategie</h2>
+      <div style="display:flex;flex-direction:column;gap:5px">`;
+    for(const num of volgorde){
+      const st = perC[num]; if(!st) continue;
+      html += `<div style="display:flex;align-items:center;gap:8px">
+        <span style="width:34px;font-family:var(--mono);font-size:11px;color:var(--dim)">${esc(naam(num))}</span>
+        <span style="flex:1;display:flex;gap:2px;height:14px">${st.map(s => {
+          const breedte = Math.max(1, ((s.tot - s.van + 1) / d.maxLap) * 100);
+          const c = BAND_KLEUR[s.band] || BAND_KLEUR.UNKNOWN;
+          return `<span title="${esc(s.band||'?')} ronde ${s.van}-${s.tot}"
+            style="width:${breedte}%;background:${c};border-radius:3px;opacity:.85"></span>`;
+        }).join('')}</span></div>`;
+    }
+    html += `</div><div class="pts-chips" style="margin-top:10px">${
+      Object.entries(BAND_KLEUR).filter(([k])=>k!=='UNKNOWN').map(([k,c]) =>
+      `<span class="pchip"><span style="width:9px;height:9px;border-radius:50%;background:${c};display:inline-block"></span>${k}</span>`).join('')
+    }</div></div>`;
+  }
+
+  // --- positieverloop ---
+  if(d.verloop.length > 2){
+    const W = 320, H = 210, mL = 26, mR = 8, mT = 8, mB = 18;
+    const nPos = Math.max(...d.verloop.flatMap(v => Object.values(v.pos)), 1);
+    const x = lap => mL + ((lap-1)/(d.maxLap-1||1)) * (W-mL-mR);
+    const y = pos => mT + ((pos-1)/(nPos-1||1)) * (H-mT-mB);
+    const nums = [...new Set(d.verloop.flatMap(v => Object.keys(v.pos)))];
+    const lijnen = nums.map(n => {
+      const punten = d.verloop.filter(v => v.pos[n]).map(v => `${x(v.lap).toFixed(1)},${y(v.pos[n]).toFixed(1)}`);
+      if(punten.length < 2) return '';
+      const uit = mijnNums.has(+n);
+      return `<polyline points="${punten.join(' ')}" fill="none" stroke="${kleur(+n)}"
+        stroke-width="${uit?2.4:1}" opacity="${uit?1:.45}" stroke-linejoin="round"/>`;
+    }).join('');
+    html += `<div class="card"><h2>Positieverloop</h2>
+      <div class="matrix-wrap"><svg viewBox="0 0 ${W} ${H}" style="width:100%;min-width:300px">
+        ${[1,5,10,15,20].filter(p=>p<=nPos).map(p =>
+          `<line x1="${mL}" y1="${y(p)}" x2="${W-mR}" y2="${y(p)}" stroke="#23232f" stroke-width=".5"/>
+           <text x="2" y="${y(p)+3}" fill="#5c5c6c" font-size="8" font-family="monospace">P${p}</text>`).join('')}
+        ${lijnen}
+        <text x="${mL}" y="${H-4}" fill="#5c5c6c" font-size="8" font-family="monospace">ronde 1</text>
+        <text x="${W-mR}" y="${H-4}" fill="#5c5c6c" font-size="8" font-family="monospace" text-anchor="end">${d.maxLap}</text>
+      </svg></div>
+      ${mijnNums.size ? '<div class="small muted" style="margin-top:6px">Jouw voorspelde coureurs zijn uitgelicht.</div>' : ''}
+    </div>`;
+  }
+
+  // --- pitstops ---
+  if(d.pits.length){
+    const gesorteerd = [...d.pits].filter(p=>p.duur).sort((a,b)=>a.duur-b.duur).slice(0,8);
+    html += `<div class="card"><h2>Snelste pitstops</h2>${gesorteerd.map((p,i) => `
+      <div class="res-row"><span class="pos">${i+1}</span>
+        <span class="teambar" style="background:${kleur(p.num)}"></span>
+        <span class="d-name">${esc(C[p.num]?.naam || naam(p.num))}<span class="d-team">ronde ${p.lap}</span></span>
+        <span class="d-right">${p.duur.toFixed(1)}s</span></div>`).join('')}</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+
+// welke sessies van dit weekend zijn al gratis beschikbaar?
+async function laadAnalyseSessies(){
+  try{
+    const nr = nextRace();
+    const race = (nr && nr.sessions.length && Date.now() > nr.sessions[0].start.getTime()) ? nr : lastDoneRace();
+    if(!race || !S.season) return;
+    const alle = await of1Sessions(S.season);
+    const lijst = sessionsVoorRonde(alle, race)
+      .filter(s => new Date(s.date_end).getTime() < Date.now() - 30*MIN);   // buiten het betaalde venster
+    S.anSessies = lijst;
+    const bewaard = lsGet('anKey');
+    const kies = lijst.find(s => s.session_key === bewaard) || lijst[lijst.length-1];
+    if(kies && !S.anKey) setAnalyseSessie(kies.session_key, kies.session_name);
+    else renderAnalyse();
+  }catch(e){ console.warn('analyse-sessies niet geladen', e); }
+}
 
 </script>
 </body>
