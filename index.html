@@ -501,37 +501,75 @@ const SB = {
   };},
 };
 
+/* --- outbox: voorspellingen die nog niet bij de server zijn aangekomen ---
+   Deze overleven een mislukte upload, een netwerkdip en het afsluiten van de app.
+   Ze worden NOOIT overschreven door serverdata. --- */
+const keyOf = r => `${r.season}|${r.round}|${r.player}`;
+function outboxGet(){ return lsGet('outbox') || []; }
+function outboxPut(row){
+  const box = outboxGet().filter(x => keyOf(x) !== keyOf(row));
+  box.push(row); lsSet('outbox', box);
+}
+function outboxDrop(row){
+  lsSet('outbox', outboxGet().filter(x => keyOf(x) !== keyOf(row)));
+}
+function outboxFor(season){ return outboxGet().filter(x => x.season === season); }
+
+// serverrijen + outbox samenvoegen; outbox wint altijd (die is nieuwer én nog niet verstuurd)
+function mergePreds(serverRows, season){
+  const out = [...(serverRows||[])];
+  for(const p of outboxFor(season)){
+    const i = out.findIndex(x => keyOf(x) === keyOf(p));
+    if(i >= 0) out[i] = p; else out.push(p);
+  }
+  return out;
+}
+
+async function pushPred(row, keepalive){
+  const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/predictions?on_conflict=season,round,player`, {
+    method:'POST',
+    headers: { ...SB.headers(), 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row),
+    keepalive: !!keepalive,          // overleeft het sluiten van de app
+  });
+  if(!r.ok) throw new Error('Opslaan mislukt ('+r.status+')');
+}
+
+// probeer alles wat nog openstaat opnieuw te versturen
+async function flushOutbox(keepalive){
+  if(!SB.on){ outboxGet().forEach(outboxDrop); return true; }
+  let allesGelukt = true;
+  for(const row of outboxGet()){
+    try{ await pushPred(row, keepalive); outboxDrop(row); }
+    catch(e){ allesGelukt = false; }
+  }
+  return allesGelukt;
+}
+
 async function loadPreds(season){
   if(SB.on){
     try{
       const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/predictions?season=eq.${season}&select=*`, { headers: SB.headers() });
       if(!r.ok) throw new Error('supabase '+r.status);
       const rows = await r.json();
-      lsSet('preds:'+season, rows);            // offline-kopie
-      return rows;
+      lsSet('preds:'+season, rows);            // serverkopie voor offline
+      return mergePreds(rows, season);         // eigen onverstuurde invoer blijft staan
     }catch(e){
       console.warn('Supabase niet bereikbaar, val terug op lokale kopie', e);
-      return lsGet('preds:'+season) || [];
+      return mergePreds(lsGet('preds:'+season) || [], season);
     }
   }
-  return lsGet('preds:'+season) || [];
+  return mergePreds(lsGet('preds:'+season) || [], season);
 }
 
 async function savePred(p){
-  // p = {season, round, player, p1,p2,p3,pole,joker}
-  const local = lsGet('preds:'+p.season) || [];
-  const i = local.findIndex(x => x.round === p.round && x.player === p.player);
   const row = { ...p, updated_at: new Date().toISOString() };
-  if(i >= 0) local[i] = row; else local.push(row);
-  lsSet('preds:'+p.season, local);
-  if(SB.on){
-    const r = await fetch(`${CONFIG.supabaseUrl}/rest/v1/predictions?on_conflict=season,round,player`, {
-      method:'POST',
-      headers: { ...SB.headers(), 'Prefer':'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(row),
-    });
-    if(!r.ok) throw new Error('Opslaan mislukt ('+r.status+')');
-  }
+  outboxPut(row);                              // eerst veilig wegzetten, dán pas versturen
+  const local = (lsGet('preds:'+p.season) || []).filter(x => keyOf(x) !== keyOf(row));
+  local.push(row); lsSet('preds:'+p.season, local);
+  if(!SB.on){ outboxDrop(row); return; }
+  try{ await pushPred(row); outboxDrop(row); }
+  catch(e){ throw e; }                         // blijft in de outbox → wordt later opnieuw geprobeerd
 }
 
 /* ---------- pincodes (zelf aangemaakt, voorgoed vast) ---------- */
@@ -866,7 +904,18 @@ function renderPredict(){
     }
     html += `</div>`;
   }
-  html += `<div class="save-note" id="saveNote"></div>`;
+  const nogOpen = outboxGet().some(x => x.round === nr.round && x.player === S.me);
+  html += `<div class="save-note" id="saveNote">${nogOpen
+    ? '⚠ Nog niet opgeslagen — we blijven het proberen' : ''}</div>`;
+  if(nogOpen){
+    html += `<div class="card" style="border-color:var(--red2);background:rgba(225,6,0,.08)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">📡</span>
+        <div style="flex:1"><b>Je invoer staat nog niet op de server</b>
+          <div class="small muted">Hij is veilig op je telefoon bewaard en gaat vanzelf alsnog door zodra je verbinding weer stabiel is.</div></div>
+        <button class="tab-btn active" style="flex:0 0 auto;padding:8px 14px" onclick="retryOutbox()">Nu proberen</button>
+      </div></div>`;
+  }
 
   // ---- de anderen ----
   html += `<div class="card"><h2>Het clubje</h2>`;
@@ -929,18 +978,35 @@ async function updateMyPred(patch){
   const upd = { ...cur, ...patch, season:S.season, round:nr.round, player:S.me };
   const i = S.preds.findIndex(p => p.round === nr.round && p.player === S.me);
   if(i >= 0) S.preds[i] = upd; else S.preds.push(upd);
+  outboxPut({ ...upd, updated_at: new Date().toISOString() });  // meteen veiligstellen
   renderPredict();
-  const note = $('#saveNote'); if(note) note.textContent = 'Opslaan…';
+  setSaveNote('bezig', 'Opslaan…');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try{
       await savePred(upd);
-      const n = $('#saveNote'); if(n){ n.textContent = '✓ Opgeslagen'; setTimeout(()=>{ if(n.textContent==='✓ Opgeslagen') n.textContent=''; }, 2500); }
+      setSaveNote('ok', '✓ Opgeslagen');
     }catch(e){
-      const n = $('#saveNote'); if(n){ n.style.color='var(--red2)'; n.textContent = '⚠ Opslaan mislukt — check verbinding'; }
+      setSaveNote('fout', '⚠ Nog niet opgeslagen — we blijven het proberen');
     }
-  }, 400);
+  }, 200);
 }
+
+function setSaveNote(status, tekst){
+  const n = $('#saveNote'); if(!n) return;
+  n.style.color = status === 'fout' ? 'var(--red2)' : status === 'ok' ? 'var(--green)' : 'var(--dim)';
+  n.textContent = tekst;
+}
+
+// alles wat nog openstaat opnieuw proberen, en de melding bijwerken
+async function retryOutbox(keepalive){
+  if(!outboxGet().length) return;
+  const ok = await flushOutbox(keepalive);
+  if(ok) setSaveNote('ok', '✓ Opgeslagen');
+  else setSaveNote('fout', '⚠ Nog niet opgeslagen — we blijven het proberen');
+  if(ok) render();
+}
+
 function toggleJoker(){
   const nr = nextRace(); if(!nr) return;
   const cur = predOf(nr.round, S.me);
@@ -1220,6 +1286,7 @@ async function loadOfficialData(){
 
 async function refreshSoft(){
   try{
+    await flushOutbox();
     const preds = await loadPreds(S.season);
     if(preds) S.preds = preds;
     await loadOfficialData();
@@ -1261,6 +1328,15 @@ async function boot(){
     document.querySelectorAll('.view').forEach(v => v.innerHTML =
       `<div class="card"><h2>Oeps</h2><p class="muted">Kan de F1-data nu niet laden. Check je internet en ververs de pagina.</p></div>`);
   }
+  // onverstuurde invoer opnieuw proberen zodra dat kan
+  window.addEventListener('online', () => retryOutbox());
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') retryOutbox();
+    else retryOutbox(true);              // app gaat naar de achtergrond → nu versturen
+  });
+  window.addEventListener('pagehide', () => retryOutbox(true));
+  await retryOutbox();
+
   // elke 3 min zacht verversen tijdens raceweekenden, anders elke 15 min
   setInterval(() => {
     const nr = nextRace();
