@@ -1708,6 +1708,14 @@ async function of1L(pad){
 }
 const isoKort = d => new Date(d).toISOString().slice(0,19);
 
+// verzoeken netjes achter elkaar, met tussenpozen — anders slaat de snelheidslimiet toe
+let of1Rij = Promise.resolve();
+function of1Q(pad){
+  const p = of1Rij.then(async () => { await new Promise(r => setTimeout(r, 340)); return of1L(pad); });
+  of1Rij = p.then(()=>{}, ()=>{});
+  return p;
+}
+
 /* ---- baanvorm: één snelle ronde → omtrek, voor altijd bewaard ---- */
 async function baanVorm(sessionKey, circuitKey){
   const sleutel = 'baan:' + (circuitKey || sessionKey);
@@ -1746,15 +1754,16 @@ async function liveTik(){
     const na = sleutel => L.sinds[sleutel] ? `&date>${isoKort(L.sinds[sleutel])}` : '';
     const tot = `&date<=${isoKort(T)}`;
 
-    const [pos, iv, st, pit, rc, we, lp] = await Promise.all([
-      of1L(`/position?session_key=${K}${na('pos')}${tot}`).catch(()=>[]),
-      of1L(`/intervals?session_key=${K}${na('iv')}${tot}`).catch(()=>[]),
-      of1L(`/stints?session_key=${K}`).catch(()=>[]),
-      of1L(`/pit?session_key=${K}`).catch(()=>[]),
-      of1L(`/race_control?session_key=${K}${na('rc')}${tot}`).catch(()=>[]),
-      of1L(`/weather?session_key=${K}${na('we')}${tot}`).catch(()=>[]),
-      of1L(`/laps?session_key=${K}${L.sinds.lp ? `&date_start>${isoKort(L.sinds.lp)}` : ''}`).catch(()=>[]),
-    ]);
+    L.tikNr = (L.tikNr || 0) + 1;
+    const traag = L.tikNr % 4 === 1;          // stints/pits/meldingen/weer elke 4e ronde
+
+    const pos = await of1Q(`/position?session_key=${K}${na('pos')}${tot}`).catch(()=>[]);
+    const iv  = await of1Q(`/intervals?session_key=${K}${na('iv')}${tot}`).catch(()=>[]);
+    const lp  = await of1Q(`/laps?session_key=${K}${L.sinds.lp ? `&date_start>${isoKort(L.sinds.lp)}` : ''}`).catch(()=>[]);
+    const st  = traag ? await of1Q(`/stints?session_key=${K}`).catch(()=>[]) : [];
+    const pit = traag ? await of1Q(`/pit?session_key=${K}`).catch(()=>[]) : [];
+    const rc  = traag ? await of1Q(`/race_control?session_key=${K}${na('rc')}${tot}`).catch(()=>[]) : [];
+    const we  = traag ? await of1Q(`/weather?session_key=${K}${na('we')}${tot}`).catch(()=>[]) : [];
 
     for(const p of pos){ L.pos[p.driver_number] = p.position; L.sinds.pos = p.date; }
     for(const i of iv){ L.iv[i.driver_number] = {gap:i.gap_to_leader, iv:i.interval}; L.sinds.iv = i.date; }
@@ -1762,9 +1771,11 @@ async function liveTik(){
       const b = L.band[s.driver_number];
       if(!b || s.stint_number >= b.nr) L.band[s.driver_number] = {nr:s.stint_number, band:s.compound, van:s.lap_start, leeftijd:s.tyre_age_at_start};
     }
-    const telling = {};
-    for(const p of pit) telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
-    L.pits = telling;
+    if(pit.length){
+      const telling = {};
+      for(const p of pit) telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
+      L.pits = telling;
+    }
     for(const l of lp){
       if(l.date_start) L.sinds.lp = l.date_start;
       if(l.lap_number) L.rondeVan[l.driver_number] = Math.max(L.rondeVan[l.driver_number]||0, l.lap_number);
@@ -1807,13 +1818,13 @@ async function liveKaartTik(T){
   if(!L.baan){ await laadBaan(); }
   const venster = L.bron === 'replay' ? Math.max(2500, 1200 * L.snelheid) : 2500;
   const a = new Date(new Date(T).getTime() - venster);
-  const loc = await of1L(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
+  const loc = await of1Q(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
   for(const p of loc) if(p.x || p.y) L.loc[p.driver_number] = {x:p.x, y:p.y};
 }
 async function liveTelemetrieTik(T){
   const vensterT = L.bron === 'replay' ? Math.max(3000, 1200 * L.snelheid) : 3000;
   const a = new Date(new Date(T).getTime() - vensterT);
-  const cd = await of1L(`/car_data?session_key=${L.sessionKey}&driver_number=${L.gekozen}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
+  const cd = await of1Q(`/car_data?session_key=${L.sessionKey}&driver_number=${L.gekozen}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
   if(cd.length) L.tel = cd[cd.length-1];
 }
 
