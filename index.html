@@ -1891,6 +1891,11 @@ function voorlopigePunten(){
 const VLAG_KLEUR = { GREEN:'#2fd06f', YELLOW:'#f5c518', DOUBLE_YELLOW:'#f5c518', RED:'#e10600',
                      CHEQUERED:'#fff', BLUE:'#4aa3ff', CLEAR:'#2fd06f' };
 
+function isRaceSessie(){
+  const n = L.sessie && L.sessie.session_name;
+  return n === 'Race' || n === 'Sprint';
+}
+
 function renderLive(){
   const el = $('#view-live'); if(!el) return;
   if(!L.aan){
@@ -1945,7 +1950,7 @@ function renderLive(){
         <span class="teambar" style="background:${kleur(r.num)}"></span>
         <span class="tr-code">${esc(code(r.num))}</span>
         <span class="tr-band">${b ? `<span class="band-dot" style="background:${BAND_KLEUR[b.band]||BAND_KLEUR.UNKNOWN}"></span>${bandLeeftijd ? bandLeeftijd : ''}` : ''}</span>
-        <span class="tr-pit">${L.pits[r.num] ? 'P'+L.pits[r.num] : ''}</span>
+        <span class="tr-pit">${isRaceSessie() && L.pits[r.num] ? 'P'+L.pits[r.num] : ''}</span>
         <span class="tr-gap">${esc(gapTxt)}<span class="tr-tot">${esc(totTxt)}</span></span>
       </button>` + (L.gekozen === r.num ? telemetrieBlok(r.num) : '');
     }).join('') + `</div>`;
@@ -1953,7 +1958,7 @@ function renderLive(){
   html += `</div>`;
 
   // --- 2. jullie Cup live ---
-  const vp = voorlopigePunten();
+  const vp = isRaceSessie() ? voorlopigePunten() : [];
   if(vp.length){
     html += `<div class="card"><div class="checker"></div><h2>${esc(CONFIG.cupName)} · als het nu zo eindigt</h2>`;
     html += vp.map((r,i) => `<div class="cup-row ${i===0?'first':''}" style="padding:9px 0">
