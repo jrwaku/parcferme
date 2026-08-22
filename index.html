@@ -1216,7 +1216,7 @@ function openProfilePicker(firstRun){
         ${S.pins && S.pins[p.id] ? '' : '<span class="small" style="color:var(--gold)">nieuw · maak je code</span>'}
       </button>`).join('')}
     </div>
-    <button class="pin-back" onclick="openSleutelScherm()">🔑 Live-sleutel instellen</button>`;
+    <button class="pin-back" onclick="openSleutelScherm()">🔴 Live data aanzetten</button>`;
   $('#profileOverlay').classList.add('open');
 }
 
@@ -1697,79 +1697,91 @@ const L = {
   sinds:{}, klok:null, snelheid:1, timer:null, fout:null, laatsteUpdate:null,
 };
 
-/* De sponsorsleutel staat ALLEEN op dit toestel (localStorage), nooit in de
-   openbare broncode. OpenF1 documenteert niet hoe je hem moet meesturen, dus
-   proberen we de gangbare manieren en onthouden we welke werkt. */
-const SLEUTEL_STIJLEN = ['bearer', 'apikey', 'x-api-key', 'query'];
-function liveSleutel(){ return lsGet('of1key') || CONFIG.openf1Key || ''; }
-function liveStijl(){ return lsGet('of1stijl') || 'bearer'; }
-function bouwVerzoek(pad, stijl){
-  const k = liveSleutel();
-  if(!k) return { url: OF1 + pad, opts: {} };
-  if(stijl === 'query')     return { url: OF1 + pad + (pad.includes('?') ? '&' : '?') + 'api_key=' + encodeURIComponent(k), opts: {} };
-  if(stijl === 'apikey')    return { url: OF1 + pad, opts: { headers: { 'apikey': k } } };
-  if(stijl === 'x-api-key') return { url: OF1 + pad, opts: { headers: { 'x-api-key': k } } };
-  return { url: OF1 + pad, opts: { headers: { 'Authorization': 'Bearer ' + k } } };
+/* OpenF1 geeft een token dat na een uur verloopt; de app haalt het zelf op en
+   ververst het automatisch. Inloggegevens staan ALLEEN in de opslag van dit
+   toestel en gaan nergens heen behalve naar OpenF1 zelf. */
+const TOKEN_URL = 'https://api.openf1.org/token';
+let of1Token = null;
+
+function liveAuth(){ return lsGet('of1auth'); }
+function liveIngelogd(){ return !!liveAuth(); }
+
+async function haalToken(force){
+  const a = liveAuth(); if(!a) return null;
+  if(!of1Token) of1Token = lsGet('of1token');
+  if(!force && of1Token && Date.now() < of1Token.verloopt - 60000) return of1Token.token;
+  const r = await fetch(TOKEN_URL, {
+    method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ username:a.user, password:a.pass }).toString(),
+  });
+  if(r.status === 401) throw new Error('e-mailadres of wachtwoord klopt niet');
+  if(!r.ok) throw new Error('token ophalen mislukt (' + r.status + ')');
+  const j = await r.json();
+  of1Token = { token:j.access_token, verloopt: Date.now() + ((parseInt(j.expires_in,10)||3600)*1000) };
+  lsSet('of1token', of1Token);
+  return of1Token.token;
 }
-function of1Headers(){ return bouwVerzoek('', liveStijl()).opts.headers || {}; }
 
 async function of1L(pad){
-  const k = liveSleutel();
-  const stijlen = k ? [liveStijl(), ...SLEUTEL_STIJLEN.filter(x => x !== liveStijl())] : ['bearer'];
-  let laatsteFout = null;
-  for(const stijl of stijlen){
-    const { url, opts } = bouwVerzoek(pad, stijl);
-    const r = await fetch(url, opts);
-    if(r.status === 404) return [];
-    if(r.status === 401 || r.status === 403){
-      laatsteFout = new Error('sleutel geweigerd (' + r.status + ')');
-      continue;                                   // volgende manier proberen
-    }
-    if(r.status === 429) throw new Error('te veel verzoeken — even rustig aan');
-    if(!r.ok){ laatsteFout = new Error('OpenF1 ' + r.status); break; }
-    if(k && stijl !== liveStijl()) lsSet('of1stijl', stijl);   // deze werkt → onthouden
-    return r.json();
+  let token = null;
+  try{ token = await haalToken(false); }catch(e){ /* zonder token werkt gratis data gewoon */ }
+  const doe = t => fetch(OF1 + pad, t ? { headers:{ 'Authorization':'Bearer ' + t } } : {});
+  let r = await doe(token);
+  if((r.status === 401 || r.status === 403) && liveIngelogd()){
+    token = await haalToken(true).catch(() => null);
+    if(token) r = await doe(token);
   }
-  throw laatsteFout || new Error('OpenF1 onbereikbaar');
+  if(r.status === 404) return [];
+  if(r.status === 401 || r.status === 403) throw new Error('geen toegang tot live data — ben je ingelogd?');
+  if(r.status === 429) throw new Error('te veel verzoeken — even rustig aan');
+  if(!r.ok) throw new Error('OpenF1 ' + r.status);
+  return r.json();
 }
 
-/* instelscherm voor de sleutel */
+/* inlogscherm voor live data */
 function openSleutelScherm(){
-  const huidig = liveSleutel();
+  const a = liveAuth();
   $('#profileSheet').innerHTML = `
-    <h3>🔑 Live-sleutel</h3>
+    <h3>&#128308; Live data aanzetten</h3>
     <div class="small muted" style="line-height:1.5;margin-bottom:12px">
-      Plak hier je OpenF1-sponsorsleutel. Die blijft <b>alleen op dit toestel</b> —
-      hij komt niet in de broncode en niemand anders kan erbij.
-      Zonder sleutel werkt de app gewoon, alleen zonder live data tijdens sessies.
+      OpenF1 geeft een token dat elk uur verloopt, dus de app logt zelf in en ververst het.
+      Je gegevens blijven <b>alleen op dit toestel</b> en gaan nergens heen behalve naar OpenF1.
+      ${a ? '<br><b style="color:var(--green)">Nu ingelogd als ' + esc(a.user) + '</b>' : ''}
     </div>
-    <input class="search" id="sleutelVeld" type="password" autocomplete="off"
-      placeholder="${huidig ? '•••••• (er staat er al een)' : 'plak je sleutel'}">
+    <input class="search" id="of1User" type="email" autocomplete="off" placeholder="je OpenF1 e-mailadres" value="${a ? esc(a.user) : ''}">
+    <input class="search" id="of1Pass" type="password" autocomplete="off" placeholder="je OpenF1 wachtwoord">
     <div class="pin-err" id="sleutelUitslag" style="text-align:left;min-height:20px"></div>
     <div style="display:flex;gap:8px">
-      <button class="tab-btn active" style="flex:1" onclick="sleutelOpslaan()">Opslaan en testen</button>
-      ${huidig ? '<button class="tab-btn" style="flex:0 0 auto" onclick="sleutelWissen()">Wissen</button>' : ''}
+      <button class="tab-btn active" style="flex:1" onclick="sleutelOpslaan()">Inloggen en testen</button>
+      ${a ? '<button class="tab-btn" style="flex:0 0 auto" onclick="sleutelWissen()">Uitloggen</button>' : ''}
     </div>
     <button class="pin-back" onclick="closeOverlays()">sluiten</button>`;
   $('#profileOverlay').classList.add('open');
 }
+
 async function sleutelOpslaan(){
-  const v = ($('#sleutelVeld').value || '').trim();
+  const user = ($('#of1User').value || '').trim();
+  const pass = $('#of1Pass').value || '';
   const uit = $('#sleutelUitslag');
-  if(!v){ uit.textContent = 'Nog niets ingevuld.'; return; }
-  lsSet('of1key', v); lsSet('of1stijl', 'bearer');
-  uit.style.color = 'var(--dim)'; uit.textContent = 'Testen…';
+  if(!user || !pass){ uit.style.color = 'var(--red2)'; uit.textContent = 'Vul allebei de velden in.'; return; }
+  uit.style.color = 'var(--dim)'; uit.textContent = 'Inloggen...';
+  lsSet('of1auth', { user, pass }); of1Token = null;
   try{
-    await of1L('/sessions?year=' + S.season);
+    await haalToken(true);
+    const min = Math.round((of1Token.verloopt - Date.now())/60000);
     uit.style.color = 'var(--green)';
-    uit.textContent = '✓ Opgeslagen. Manier: ' + liveStijl() + '. Tijdens de sessie schakelt hij vanzelf live.';
+    uit.textContent = 'Gelukt! Token geldig voor ' + min + ' minuten; de app ververst hem vanzelf.';
+    setTimeout(() => { closeOverlays(); regelLive(); }, 2000);
   }catch(e){
-    uit.style.color = 'var(--red2)';
-    uit.textContent = '⚠ ' + e.message + ' — controleer of je hem goed hebt gekopieerd.';
+    try{ localStorage.removeItem(LS+'of1auth'); }catch(_){}
+    uit.style.color = 'var(--red2)'; uit.textContent = e.message;
   }
 }
-function sleutelWissen(){ try{ localStorage.removeItem(LS+'of1key'); localStorage.removeItem(LS+'of1stijl'); }catch(e){}
-  openSleutelScherm(); }
+
+function sleutelWissen(){
+  try{ localStorage.removeItem(LS+'of1auth'); localStorage.removeItem(LS+'of1token'); }catch(e){}
+  of1Token = null; openSleutelScherm();
+}
 const isoKort = d => new Date(d).toISOString().slice(0,19);
 
 // verzoeken netjes achter elkaar, met tussenpozen — anders slaat de snelheidslimiet toe
