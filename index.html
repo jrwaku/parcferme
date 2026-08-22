@@ -254,6 +254,37 @@ nav button.active .nv-ic{color:var(--red2)}
 .pinpad button:active{transform:scale(.94);background:var(--line)}
 .pinpad button.blank{visibility:hidden}
 .pin-back{display:block;margin:14px auto 0;background:none;border:none;color:var(--dim);font:inherit;font-size:13px;cursor:pointer}
+/* ---------- live ---------- */
+.livebar{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--line);
+  border-radius:12px;padding:8px 12px;margin-bottom:12px}
+.livebar .lb-mid{flex:1;font-size:13px;font-weight:700}
+.lb-vlag{font-size:10px;font-family:var(--mono);color:#000;border-radius:6px;padding:2px 7px;font-weight:700}
+.lb-weer{font-size:12px;font-family:var(--mono);color:var(--dim)}
+.toren{display:flex;flex-direction:column}
+.tr-row{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;
+  border-bottom:1px solid rgba(255,255,255,.05);padding:8px 2px;color:var(--txt);font:inherit;cursor:pointer}
+.tr-row.open{background:rgba(245,197,24,.07)}
+.tr-pos{font-family:var(--mono);width:20px;font-size:13px;color:var(--dim);text-align:right}
+.tr-code{font-weight:700;font-size:14px;width:42px;letter-spacing:.5px}
+.tr-band{width:38px;display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.band-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.tr-pit{width:28px;font-size:10px;color:var(--faint);font-family:var(--mono)}
+.tr-gap{flex:1;text-align:right;font-family:var(--mono);font-size:13px}
+.tr-tot{display:block;font-size:10px;color:var(--faint)}
+.tel{padding:10px 8px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.05)}
+.tel-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.tel-chip{font-size:10px;font-family:var(--mono);border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--dim)}
+.tel-rij{display:flex;align-items:center;gap:8px;margin-top:4px}
+.tel-lab{font-size:10px;color:var(--faint);width:26px;text-transform:uppercase}
+.tel-baan{flex:1;height:7px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.tel-baan span{display:block;height:100%;border-radius:4px;transition:width .2s}
+.tel-w{font-family:var(--mono);font-size:11px;width:26px;text-align:right;color:var(--dim)}
+.uitklap{display:flex;align-items:center;width:100%;background:none;border:none;color:var(--txt);
+  font:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:0}
+.melding{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.m-vlag{width:4px;height:20px;border-radius:2px;flex-shrink:0}
+.m-txt{flex:1;font-size:12px;line-height:1.35}
+.m-lap{font-family:var(--mono);font-size:10px;color:var(--faint)}
 /* ---------- misc ---------- */
 .banner{
   display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:var(--dim);
@@ -286,6 +317,7 @@ a{color:var(--blue)}
   <section id="view-race" class="view active"><div class="loading">Data laden…</div></section>
   <section id="view-predict" class="view"><div class="loading">Data laden…</div></section>
   <section id="view-standings" class="view"><div class="loading">Data laden…</div></section>
+  <section id="view-live" class="view"></section>
   <section id="view-analyse" class="view"></section>
   <section id="view-calendar" class="view"><div class="loading">Data laden…</div></section>
 </main>
@@ -299,6 +331,9 @@ a{color:var(--blue)}
   </button>
   <button id="nav-standings" onclick="setView('standings')">
     <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0zM7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3"/></svg></span>Stand
+  </button>
+  <button id="nav-live" onclick="setView('live')" style="display:none">
+    <span class="nv-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M3.5 3.5a12 12 0 0 0 0 17M20.5 3.5a12 12 0 0 1 0 17"/></svg></span>Live
   </button>
   <button id="nav-analyse" onclick="setView('analyse')">
     <span class="nv-ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg></span>Analyse
@@ -1306,6 +1341,7 @@ function render(){
   try{ renderRace(); }catch(e){ console.error(e); }
   try{ renderPredict(); }catch(e){ console.error(e); }
   try{ renderStandings(); }catch(e){ console.error(e); }
+  try{ renderLive(); }catch(e){ console.error(e); }
   try{ renderAnalyse(); }catch(e){ console.error(e); }
   try{ renderCalendar(); }catch(e){ console.error(e); }
 }
@@ -1335,6 +1371,8 @@ async function boot(){
       `<div class="card"><h2>Oeps</h2><p class="muted">Kan de F1-data nu niet laden. Check je internet en ververs de pagina.</p></div>`);
   }
   laadAnalyseSessies();          // op de achtergrond, blokkeert niets
+  regelLive();                   // live-tabblad alleen tonen als er iets loopt
+  setInterval(regelLive, 2*MIN);
 
   // onverstuurde invoer opnieuw proberen zodra dat kan
   window.addEventListener('online', () => retryOutbox());
@@ -1641,6 +1679,327 @@ async function laadAnalyseSessies(){
     if(kies && !S.anKey) setAnalyseSessie(kies.session_key, kies.session_name);
     else renderAnalyse();
   }catch(e){ console.warn('analyse-sessies niet geladen', e); }
+}
+
+/* ============================================================
+   LIVE — timingtoren, jullie Cup live, baankaart, telemetrie
+   Werkt met twee bronnen die dezelfde code delen:
+     'live'   → OpenF1 met sponsorsleutel, tijd = nu
+     'replay' → historische sessie, tijd = nagespeelde klok  (?replay=<session_key>)
+   Valt bij een storing altijd stil zonder de rest van de app te raken.
+   ============================================================ */
+const L = {
+  aan:false, bron:'live', sessionKey:null, sessie:null,
+  coureurs:{}, pos:{}, iv:{}, band:{}, pits:{}, loc:{},
+  meldingen:[], weer:null, ronde:null, maxRonde:null,
+  baan:null, kaartOpen:false, gekozen:null, tel:null,
+  sinds:{}, klok:null, snelheid:1, timer:null, fout:null, laatsteUpdate:null,
+};
+
+function of1Headers(){
+  return CONFIG.openf1Key ? { 'Authorization': 'Bearer ' + CONFIG.openf1Key } : {};
+}
+async function of1L(pad){
+  const r = await fetch(OF1 + pad, { headers: of1Headers() });
+  if(r.status === 404) return [];
+  if(r.status === 401 || r.status === 403) throw new Error('geen toegang tot live data (sleutel?)');
+  if(!r.ok) throw new Error('OpenF1 ' + r.status);
+  return r.json();
+}
+const isoKort = d => new Date(d).toISOString().slice(0,19);
+
+/* ---- baanvorm: één snelle ronde → omtrek, voor altijd bewaard ---- */
+async function baanVorm(sessionKey, circuitKey){
+  const sleutel = 'baan:' + (circuitKey || sessionKey);
+  const cache = lsGet(sleutel);
+  if(cache) return cache;
+  const laps = await of1L(`/laps?session_key=${sessionKey}`);
+  const geldig = laps.filter(l => l.lap_duration && l.date_start);
+  if(!geldig.length) return null;
+  const beste = geldig.sort((a,b) => a.lap_duration - b.lap_duration)[0];
+  const t0 = new Date(beste.date_start), t1 = new Date(t0.getTime() + beste.lap_duration*1000);
+  const loc = await of1L(`/location?session_key=${sessionKey}&driver_number=${beste.driver_number}&date>=${isoKort(t0)}&date<${isoKort(t1)}`);
+  const pts = loc.filter(p => p.x || p.y).map(p => [p.x, p.y]);
+  if(pts.length < 40) return null;
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
+  const vorm = { pts, minX:Math.min(...xs), maxX:Math.max(...xs), minY:Math.min(...ys), maxY:Math.max(...ys) };
+  lsSet(sleutel, vorm);
+  return vorm;
+}
+
+/* ---- welke sessie loopt er nu? ---- */
+async function liveSessieNu(){
+  const alle = await of1Sessions(S.season);
+  const nu = Date.now();
+  return alle.find(s => {
+    const a = new Date(s.date_start).getTime() - 30*MIN;
+    const b = new Date(s.date_end).getTime() + 10*MIN;
+    return nu >= a && nu <= b;
+  }) || null;
+}
+
+/* ---- één ronde data ophalen voor tijdstip T ---- */
+async function liveTik(){
+  try{
+    const T = L.bron === 'replay' ? L.klok : new Date();
+    const K = L.sessionKey;
+    const na = sleutel => L.sinds[sleutel] ? `&date>${isoKort(L.sinds[sleutel])}` : '';
+    const tot = `&date<=${isoKort(T)}`;
+
+    const [pos, iv, st, pit, rc, we] = await Promise.all([
+      of1L(`/position?session_key=${K}${na('pos')}${tot}`).catch(()=>[]),
+      of1L(`/intervals?session_key=${K}${na('iv')}${tot}`).catch(()=>[]),
+      of1L(`/stints?session_key=${K}`).catch(()=>[]),
+      of1L(`/pit?session_key=${K}`).catch(()=>[]),
+      of1L(`/race_control?session_key=${K}${na('rc')}${tot}`).catch(()=>[]),
+      of1L(`/weather?session_key=${K}${na('we')}${tot}`).catch(()=>[]),
+    ]);
+
+    for(const p of pos){ L.pos[p.driver_number] = p.position; L.sinds.pos = p.date; }
+    for(const i of iv){ L.iv[i.driver_number] = {gap:i.gap_to_leader, iv:i.interval}; L.sinds.iv = i.date; }
+    for(const s of st){
+      const b = L.band[s.driver_number];
+      if(!b || s.stint_number >= b.nr) L.band[s.driver_number] = {nr:s.stint_number, band:s.compound, van:s.lap_start, leeftijd:s.tyre_age_at_start};
+    }
+    const telling = {};
+    for(const p of pit) telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
+    L.pits = telling;
+    for(const m of rc){
+      L.meldingen.unshift(m); L.sinds.rc = m.date;
+      if(m.lap_number) L.ronde = Math.max(L.ronde||0, m.lap_number);
+    }
+    L.meldingen = L.meldingen.slice(0, 8);
+    if(we.length){ L.weer = we[we.length-1]; L.sinds.we = we[we.length-1].date; }
+
+    // ronde afleiden uit de laatste rondes van de leider
+    const leider = Object.entries(L.pos).find(([,p]) => p === 1);
+    if(leider){
+      const lp = await of1L(`/laps?session_key=${K}&driver_number=${leider[0]}`).catch(()=>[]);
+      if(lp.length) L.ronde = Math.max(L.ronde||0, ...lp.map(x=>x.lap_number||0));
+    }
+
+    if(L.kaartOpen) await liveKaartTik(T);
+    if(L.gekozen) await liveTelemetrieTik(T);
+
+    L.fout = null; L.laatsteUpdate = Date.now();
+  }catch(e){
+    L.fout = e.message;
+  }
+  if(S.view === 'live') renderLive();
+}
+
+async function liveKaartTik(T){
+  const a = new Date(new Date(T).getTime() - 2500);
+  const loc = await of1L(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
+  for(const p of loc) if(p.x || p.y) L.loc[p.driver_number] = {x:p.x, y:p.y};
+}
+async function liveTelemetrieTik(T){
+  const a = new Date(new Date(T).getTime() - 3000);
+  const cd = await of1L(`/car_data?session_key=${L.sessionKey}&driver_number=${L.gekozen}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
+  if(cd.length) L.tel = cd[cd.length-1];
+}
+
+/* ---- starten / stoppen ---- */
+async function liveStart(sessionKey, bron, startTijd){
+  L.aan = true; L.bron = bron || 'live'; L.sessionKey = sessionKey;
+  L.pos={}; L.iv={}; L.band={}; L.pits={}; L.loc={}; L.meldingen=[]; L.sinds={}; L.ronde=null;
+  const alle = await of1Sessions(S.season).catch(()=>[]);
+  L.sessie = alle.find(s => s.session_key === sessionKey) || null;
+  if(L.bron === 'replay'){
+    L.klok = new Date(startTijd || (L.sessie ? L.sessie.date_start : Date.now()));
+    L.snelheid = 60;                                  // 1 seconde = 1 minuut
+  }
+  L.coureurs = {};
+  for(const d of await of1L(`/drivers?session_key=${sessionKey}`).catch(()=>[])){
+    L.coureurs[d.driver_number] = { num:d.driver_number, code:d.name_acronym || ('#'+d.driver_number),
+      naam:d.full_name || d.broadcast_name || '', team:d.team_name || '',
+      kleur: d.team_colour ? '#'+d.team_colour : '#5c5c6c' };
+  }
+  baanVorm(sessionKey, L.sessie && L.sessie.circuit_key).then(v => { L.baan = v; if(S.view==='live') renderLive(); }).catch(()=>{});
+  clearInterval(L.timer);
+  L.timer = setInterval(() => {
+    if(L.bron === 'replay') L.klok = new Date(L.klok.getTime() + 5000 * L.snelheid);
+    liveTik();
+  }, 5000);
+  liveTik();
+  renderLive();
+}
+function liveStop(){ L.aan=false; clearInterval(L.timer); L.timer=null; }
+function liveKaartToggle(){ L.kaartOpen = !L.kaartOpen; renderLive(); if(L.kaartOpen) liveTik(); }
+function liveKiesCoureur(num){ L.gekozen = (L.gekozen === num ? null : num); L.tel = null; renderLive(); if(L.gekozen) liveTik(); }
+
+/* ---- voorlopige punten: hoe staan jullie ervoor als het NU zo eindigt? ---- */
+function voorlopigePunten(){
+  const nr = nextRace(); if(!nr) return [];
+  const top3 = [1,2,3].map(p => {
+    const e = Object.entries(L.pos).find(([,v]) => v === p);
+    return e ? {pos:p, num:+e[0]} : null;
+  }).filter(Boolean);
+  if(top3.length < 3) return [];
+  // OpenF1-nummer → onze coureur-id
+  const naarId = num => {
+    const c = L.coureurs[num]; if(!c) return null;
+    const d = S.drivers.find(x => String(x.num) === String(num))
+           || S.drivers.find(x => (x.code||'').toUpperCase() === (c.code||'').toUpperCase());
+    return d ? d.id : null;
+  };
+  const rows = top3.map(t => ({pos:t.pos, driverId:naarId(t.num)})).filter(r => r.driverId);
+  if(rows.length < 3) return [];
+  return CONFIG.players.map(p => {
+    const pr = predOf(nr.round, p.id);
+    if(!pr) return {speler:p, punten:0, geen:true};
+    const sc = scoreRound(pr, {rows, fl:null}, null);
+    return {speler:p, punten:sc.race, hits:sc.hits, joker:!!pr.joker};
+  }).sort((a,b) => b.punten - a.punten);
+}
+
+/* ---- Live: weergave ---- */
+const VLAG_KLEUR = { GREEN:'#2fd06f', YELLOW:'#f5c518', DOUBLE_YELLOW:'#f5c518', RED:'#e10600',
+                     CHEQUERED:'#fff', BLUE:'#4aa3ff', CLEAR:'#2fd06f' };
+
+function renderLive(){
+  const el = $('#view-live'); if(!el) return;
+  if(!L.aan){
+    el.innerHTML = `<div class="card"><h2>Live</h2>
+      <p class="muted small">Er loopt nu geen sessie. Dit tabblad verschijnt vanzelf vanaf een half uur
+      voor de start van een training, kwalificatie of race.</p></div>`;
+    return;
+  }
+  const C = L.coureurs;
+  const kleur = n => C[n] ? C[n].kleur : '#5c5c6c';
+  const code  = n => C[n] ? C[n].code : '#'+n;
+  let html = '';
+
+  // --- statusbalk ---
+  const vlagMelding = L.meldingen.find(m => m.flag && m.flag !== 'CLEAR');
+  const sc = L.meldingen.find(m => /SAFETY CAR|VIRTUAL/i.test(m.message||''));
+  html += `<div class="livebar">
+    <span class="live-pill">● ${esc(L.bron === 'replay' ? 'HERHALING' : 'LIVE')}</span>
+    <span class="lb-mid">${esc(L.sessie ? (L.sessie.session_name==='Qualifying'?'Kwalificatie':L.sessie.session_name) : '')}
+      ${L.ronde ? `· ronde ${L.ronde}` : ''}</span>
+    ${vlagMelding ? `<span class="lb-vlag" style="background:${VLAG_KLEUR[vlagMelding.flag]||'#5c5c6c'}">${esc(vlagMelding.flag)}</span>` : ''}
+    ${L.weer ? `<span class="lb-weer">${L.weer.rainfall ? '🌧️' : '☀️'} ${Math.round(L.weer.track_temperature)}°</span>` : ''}
+  </div>`;
+  if(sc) html += `<div class="card" style="border-color:var(--gold);background:rgba(245,197,24,.1);padding:10px 14px">
+    <b style="font-size:13px">⚠️ ${esc(sc.message)}</b></div>`;
+  if(L.fout) html += `<div class="banner">⚠ ${esc(L.fout)} — de rest van de app werkt gewoon door.</div>`;
+
+  // --- 1. timingtoren ---
+  const opVolgorde = Object.entries(L.pos).map(([n,p]) => ({num:+n, pos:p}))
+    .filter(x => x.pos).sort((a,b) => a.pos - b.pos);
+  html += `<div class="card"><h2>Timing</h2>`;
+  if(!opVolgorde.length){
+    html += `<div class="loading">Wachten op de eerste data…</div>`;
+  } else {
+    html += `<div class="toren">` + opVolgorde.map(r => {
+      const b = L.band[r.num], iv = L.iv[r.num] || {};
+      const gapTxt = r.pos === 1 ? 'LEIDER'
+        : (iv.iv != null ? '+' + (isNaN(+iv.iv) ? iv.iv : (+iv.iv).toFixed(3)) : '—');
+      const totTxt = r.pos === 1 ? '' : (iv.gap != null && !isNaN(+iv.gap) ? '+' + (+iv.gap).toFixed(1) : '');
+      return `<button class="tr-row ${L.gekozen===r.num?'open':''}" onclick="liveKiesCoureur(${r.num})">
+        <span class="tr-pos">${r.pos}</span>
+        <span class="teambar" style="background:${kleur(r.num)}"></span>
+        <span class="tr-code">${esc(code(r.num))}</span>
+        <span class="tr-band">${b ? `<span class="band-dot" style="background:${BAND_KLEUR[b.band]||BAND_KLEUR.UNKNOWN}"></span>${b.leeftijd!=null?b.leeftijd:''}` : ''}</span>
+        <span class="tr-pit">${L.pits[r.num] ? '🔧'+L.pits[r.num] : ''}</span>
+        <span class="tr-gap">${esc(gapTxt)}<span class="tr-tot">${esc(totTxt)}</span></span>
+      </button>` + (L.gekozen === r.num ? telemetrieBlok(r.num) : '');
+    }).join('') + `</div>`;
+  }
+  html += `</div>`;
+
+  // --- 2. jullie Cup live ---
+  const vp = voorlopigePunten();
+  if(vp.length){
+    html += `<div class="card"><div class="checker"></div><h2>${esc(CONFIG.cupName)} · als het nu zo eindigt</h2>`;
+    html += vp.map((r,i) => `<div class="cup-row ${i===0?'first':''}" style="padding:9px 0">
+      <span class="cup-rank">${i===0?'👑':i+1}</span>
+      <span class="cup-em">${r.speler.emoji}</span>
+      <div class="cup-main"><div class="cup-name" style="font-size:15px">${esc(r.speler.name)}
+        ${r.joker?'<span style="font-size:12px">🃏</span>':''}</div>
+        <div class="cup-sub">${r.geen ? 'niet voorspeld' : Object.values(r.hits||{}).filter(h=>h==='exact').length+' exact'}</div></div>
+      <div class="cup-pts" style="font-size:18px">${r.punten}<span> ptn</span></div>
+    </div>`).join('');
+    html += `<div class="small muted" style="margin-top:8px">Voorlopig — telt pas mee als de vlag valt.</div></div>`;
+  }
+
+  // --- 3. baankaart (ingeklapt) ---
+  html += `<div class="card"><button class="uitklap" onclick="liveKaartToggle()">
+      <span style="flex:1;text-align:left">🗺️ Baankaart</span>
+      <span class="muted small">${L.kaartOpen ? 'verbergen' : 'tonen'} ${L.kaartOpen?'▲':'▼'}</span></button>`;
+  if(L.kaartOpen){
+    if(!L.baan) html += `<div class="loading">Circuit tekenen…</div>`;
+    else {
+      const W=320,H=250,pad=16, v=L.baan;
+      const sx = x => pad + (x - v.minX)/(v.maxX - v.minX)*(W-2*pad);
+      const sy = y => H-pad - (y - v.minY)/(v.maxY - v.minY)*(H-2*pad);
+      const d = 'M ' + v.pts.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' L ') + ' Z';
+      const autos = Object.entries(L.loc).map(([n,p]) => {
+        const pos = L.pos[n]; const uit = L.gekozen === +n;
+        return `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${uit?6:4.2}"
+          fill="${kleur(+n)}" stroke="#0b0b10" stroke-width="1.2"/>
+          ${uit||pos<=3 ? `<text x="${(sx(p.x)+7).toFixed(1)}" y="${(sy(p.y)+3).toFixed(1)}" fill="#fff" font-size="8" font-family="monospace">${esc(code(+n))}</text>` : ''}`;
+      }).join('');
+      html += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px">
+        <path d="${d}" fill="none" stroke="#23232f" stroke-width="7" stroke-linejoin="round"/>
+        <path d="${d}" fill="none" stroke="#3a3a4a" stroke-width="1.4" stroke-linejoin="round"/>
+        ${autos}</svg>
+        <div class="small muted">Ververst elke 5 seconden.</div>`;
+    }
+  }
+  html += `</div>`;
+
+  // --- 4. meldingen wedstrijdleiding ---
+  if(L.meldingen.length){
+    html += `<div class="card"><h2>Wedstrijdleiding</h2>${L.meldingen.slice(0,6).map(m => `
+      <div class="melding">
+        ${m.flag ? `<span class="m-vlag" style="background:${VLAG_KLEUR[m.flag]||'#5c5c6c'}"></span>` : '<span class="m-vlag" style="background:#3a3a4a"></span>'}
+        <span class="m-txt">${esc(m.message||'')}</span>
+        <span class="m-lap">${m.lap_number?('R'+m.lap_number):''}</span>
+      </div>`).join('')}</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function telemetrieBlok(num){
+  const t = L.tel;
+  if(!t) return `<div class="tel"><span class="loading" style="padding:6px">telemetrie laden…</span></div>`;
+  const balk = (label, waarde, max, kleur) => `
+    <div class="tel-rij"><span class="tel-lab">${label}</span>
+      <span class="tel-baan"><span style="width:${Math.min(100, waarde/max*100)}%;background:${kleur}"></span></span>
+      <span class="tel-w">${waarde}</span></div>`;
+  return `<div class="tel">
+    <div class="tel-top"><b style="font-size:20px;font-family:var(--mono)">${t.speed}</b><span class="muted small"> km/u</span>
+      <span class="tel-chip">${t.n_gear ? 'V'+t.n_gear : '—'}</span>
+      <span class="tel-chip" style="${t.drs>=10?'color:var(--green);border-color:var(--green)':''}">DRS</span>
+      <span class="tel-chip">${Math.round(t.rpm/100)/10}k tpm</span></div>
+    ${balk('gas', t.throttle, 100, 'var(--green)')}
+    ${balk('rem', t.brake, 100, 'var(--red2)')}
+  </div>`;
+}
+
+
+/* live-tabblad verschijnt alleen als er echt iets te zien is */
+async function regelLive(){
+  try{
+    const knop = $('#nav-live'); if(!knop) return;
+    const params = new URLSearchParams(location.search);
+    const herhaling = params.get('replay');
+    if(herhaling){                                   // testmodus: ?replay=<session_key>
+      knop.style.display = '';
+      if(!L.aan) await liveStart(parseInt(herhaling,10), 'replay', params.get('vanaf'));
+      return;
+    }
+    const sessie = await liveSessieNu();
+    if(sessie){
+      knop.style.display = '';
+      if(!L.aan || L.sessionKey !== sessie.session_key) await liveStart(sessie.session_key, 'live');
+    } else {
+      knop.style.display = 'none';
+      if(L.aan){ liveStop(); if(S.view === 'live') setView('race'); }
+    }
+  }catch(e){ console.warn('live-check', e); }
 }
 
 </script>
