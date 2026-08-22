@@ -366,8 +366,9 @@ const CONFIG = {
   // Leeg = demo-modus: voorspellingen alleen op dit toestel.
   supabaseUrl: 'https://wpzvbudaexzqdghcesiy.supabase.co',
   supabaseKey: 'sb_publishable_HclSi6DbFD3NxBwnZcKVSQ_0N_bPx5_',
-  // Optioneel: OpenF1 sponsor-token voor échte live timing (€9,90/mnd). Leeg = uit.
-  openf1Key: '',
+  // Optioneel: adres van je Cloudflare-tussenstukje voor live data.
+  // Leeg laten kan ook — dan vult ieder op zijn eigen toestel in via het app-scherm.
+  openf1Proxy: '',
   jokersPerSeason: 2,
 };
 // Puntentelling: kwali is de helft van de race waard; snelste ronde is een kleine bonus.
@@ -1722,7 +1723,17 @@ async function haalToken(force){
   return of1Token.token;
 }
 
+function liveProxy(){ return (lsGet('of1proxy') || CONFIG.openf1Proxy || '').replace(/\/+$/, ''); }
+
 async function of1L(pad){
+  const proxy = liveProxy();
+  if(proxy){                                   // tussenstukje regelt het inloggen
+    const r = await fetch(proxy + '/v1' + pad);
+    if(r.status === 404) return [];
+    if(r.status === 429) throw new Error('te veel verzoeken — even rustig aan');
+    if(!r.ok) throw new Error('tussenstukje: ' + r.status);
+    return r.json();
+  }
   let token = null;
   try{ token = await haalToken(false); }catch(e){ /* zonder token werkt gratis data gewoon */ }
   const doe = t => fetch(OF1 + pad, t ? { headers:{ 'Authorization':'Bearer ' + t } } : {});
@@ -1748,8 +1759,11 @@ function openSleutelScherm(){
       Je gegevens blijven <b>alleen op dit toestel</b> en gaan nergens heen behalve naar OpenF1.
       ${a ? '<br><b style="color:var(--green)">Nu ingelogd als ' + esc(a.user) + '</b>' : ''}
     </div>
-    <input class="search" id="of1User" type="email" autocomplete="off" placeholder="je OpenF1 e-mailadres" value="${a ? esc(a.user) : ''}">
-    <input class="search" id="of1Pass" type="password" autocomplete="off" placeholder="je OpenF1 wachtwoord">
+    <input class="search" id="of1Proxy" type="url" autocomplete="off"
+      placeholder="adres van je tussenstukje (aanbevolen)" value="${esc(liveProxy())}">
+    <div class="small muted" style="margin:-4px 0 10px">Heb je het Cloudflare-tussenstukje opgezet? Plak dan alleen dit adres — de twee velden hieronder hoef je dan niet in te vullen.</div>
+    <input class="search" id="of1User" type="email" autocomplete="off" placeholder="of: je OpenF1 e-mailadres" value="${a ? esc(a.user) : ''}">
+    <input class="search" id="of1Pass" type="password" autocomplete="off" placeholder="of: je OpenF1 wachtwoord">
     <div class="pin-err" id="sleutelUitslag" style="text-align:left;min-height:20px"></div>
     <div style="display:flex;gap:8px">
       <button class="tab-btn active" style="flex:1" onclick="sleutelOpslaan()">Inloggen en testen</button>
@@ -1760,10 +1774,27 @@ function openSleutelScherm(){
 }
 
 async function sleutelOpslaan(){
+  const proxy = ($('#of1Proxy').value || '').trim().replace(/\/+$/, '');
   const user = ($('#of1User').value || '').trim();
   const pass = $('#of1Pass').value || '';
   const uit = $('#sleutelUitslag');
-  if(!user || !pass){ uit.style.color = 'var(--red2)'; uit.textContent = 'Vul allebei de velden in.'; return; }
+
+  if(proxy){                                   // route via het tussenstukje
+    lsSet('of1proxy', proxy);
+    uit.style.color = 'var(--dim)'; uit.textContent = 'Tussenstukje testen...';
+    try{
+      const s = await of1L('/sessions?year=' + S.season);
+      uit.style.color = 'var(--green)';
+      uit.textContent = 'Gelukt! Tussenstukje werkt (' + s.length + ' sessies opgehaald). Niemand hoeft nog in te loggen.';
+      setTimeout(() => { closeOverlays(); regelLive(); }, 2000);
+    }catch(e){
+      try{ localStorage.removeItem(LS+'of1proxy'); }catch(_){}
+      uit.style.color = 'var(--red2)'; uit.textContent = 'Tussenstukje antwoordt niet: ' + e.message;
+    }
+    return;
+  }
+
+  if(!user || !pass){ uit.style.color = 'var(--red2)'; uit.textContent = 'Vul het adres van je tussenstukje in, of allebei de onderste velden.'; return; }
   uit.style.color = 'var(--dim)'; uit.textContent = 'Inloggen...';
   lsSet('of1auth', { user, pass }); of1Token = null;
   try{
@@ -1779,7 +1810,7 @@ async function sleutelOpslaan(){
 }
 
 function sleutelWissen(){
-  try{ localStorage.removeItem(LS+'of1auth'); localStorage.removeItem(LS+'of1token'); }catch(e){}
+  try{ localStorage.removeItem(LS+'of1auth'); localStorage.removeItem(LS+'of1token'); localStorage.removeItem(LS+'of1proxy'); }catch(e){}
   of1Token = null; openSleutelScherm();
 }
 const isoKort = d => new Date(d).toISOString().slice(0,19);
