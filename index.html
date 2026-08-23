@@ -146,6 +146,8 @@ main{max-width:560px; margin:0 auto; padding:14px 14px 24px}
 .save-note{font-size:12px; color:var(--green); min-height:16px; font-family:var(--mono)}
 .other-pred{padding:10px 0; border-bottom:1px solid rgba(255,255,255,.05)}
 .other-pred:last-child{border:none}
+.other-pred.ikzelf{background:rgba(225,6,0,.06); border-radius:10px; padding:10px 12px; margin:0 -12px 4px; border-bottom:none}
+.op-head .jij-tag{font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--red2); border:1px solid var(--red2); border-radius:999px; padding:1px 7px; font-weight:700}
 .op-head{display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px}
 .op-head .pts{margin-left:auto; font-family:var(--mono); color:var(--gold); font-size:13px}
 .op-picks{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px}
@@ -958,28 +960,36 @@ function renderPredict(){
       </div></div>`;
   }
 
-  // ---- de anderen ----
+  // ---- het clubje (jijzelf bovenaan) ----
+  const clubje = [ ...CONFIG.players.filter(p => p.id === S.me),
+                   ...CONFIG.players.filter(p => p.id !== S.me) ];
   html += `<div class="card"><h2>Het clubje</h2>`;
-  html += CONFIG.players.filter(p => p.id !== S.me).map(p => {
+  html += clubje.map(p => {
+    const ikzelf = p.id === S.me;
     const pr = predOf(nr.round, p.id);
     const sc = pr && (qLock || rLock) ? scoreRound(pr, rLock ? res : null, qLock ? qres : null) : null;
     let body = '';
-    // kwali-regel
+    // kwali-regel — eigen keuzes zijn voor jezelf nooit geheim
     if(!qLock){
-      body += `<div class="small muted" style="margin-top:4px">Kwali: ${pr && pr.q1 ? '✅ ingevuld — geheim tot de kwali' : '⏳ nog niet ingevuld'}</div>`;
+      body += (ikzelf && pr && pr.q1)
+        ? chipRow('Kwali', [['Q1','q1'],['Q2','q2'],['Q3','q3']], pr, null)
+        : `<div class="small muted" style="margin-top:4px">Kwali: ${pr && pr.q1 ? '✅ ingevuld — geheim tot de kwali' : '⏳ nog niet ingevuld'}</div>`;
     } else if(pr){
       body += chipRow('Kwali', [['Q1','q1'],['Q2','q2'],['Q3','q3']], pr, sc);
     }
     // race-regel
     if(rOpen){
       if(!rLock){
-        body += `<div class="small muted" style="margin-top:4px">Race: ${pr && pr.p1 ? '✅ ingevuld — geheim tot de start' : '⏳ nog niet ingevuld'}</div>`;
+        body += (ikzelf && pr && pr.p1)
+          ? chipRow('Race', [['P1','p1'],['P2','p2'],['P3','p3'],['⚡','fl']], pr, null, pr.joker)
+          : `<div class="small muted" style="margin-top:4px">Race: ${pr && pr.p1 ? '✅ ingevuld — geheim tot de start' : '⏳ nog niet ingevuld'}</div>`;
       } else if(pr){
         body += chipRow('Race', [['P1','p1'],['P2','p2'],['P3','p3'],['⚡','fl']], pr, sc, pr.joker);
       }
     }
     if(!body) body = `<div class="small muted" style="margin-top:4px">Nog niets ingevuld</div>`;
-    return `<div class="other-pred"><div class="op-head">${p.emoji} ${esc(p.name)}
+    return `<div class="other-pred${ikzelf ? ' ikzelf' : ''}"><div class="op-head">${p.emoji} ${esc(p.name)}${
+      ikzelf ? '<span class="jij-tag">jij</span>' : ''}
       ${sc ? `<span class="pts">+${sc.total}</span>` : ''}</div>${body}</div>`;
   }).join('');
   html += `</div>`;
