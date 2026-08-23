@@ -168,6 +168,11 @@ main{max-width:560px; margin:0 auto; padding:14px 14px 24px}
 .tab-btn.active{color:#fff; background:rgba(225,6,0,.18); border-color:rgba(225,6,0,.5)}
 .cup-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.05)}
 .cup-row:last-child{border:none}
+button.cup-row.klikbaar{width:100%; background:none; border:none; border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--txt); text-align:left; cursor:pointer; font:inherit; -webkit-tap-highlight-color:transparent}
+button.cup-row.klikbaar:last-child{border-bottom:none}
+button.cup-row.klikbaar:active{background:rgba(255,255,255,.04)}
+button.cup-row.klikbaar .chev{color:var(--faint); font-size:18px; margin-left:2px}
 .cup-rank{font-family:var(--mono); font-size:18px; font-weight:700; width:26px; color:var(--dim)}
 .cup-row.first .cup-rank{color:var(--gold)}
 .cup-em{font-size:24px}
@@ -182,6 +187,45 @@ table.matrix th, table.matrix td{padding:6px 8px; text-align:center; white-space
 table.matrix th{color:var(--faint); font-weight:400; font-size:10px}
 table.matrix td.pname{text-align:left; font-family:'Titillium Web'; font-weight:700}
 table.matrix td.best{color:var(--gold); font-weight:700}
+table.matrix td.tik{cursor:pointer; border-radius:5px}
+table.matrix td.tik:active{background:rgba(255,255,255,.07)}
+
+/* ---------- puntenopbouw ---------- */
+.pb-kop{display:flex; align-items:baseline; margin:14px 0 6px; font-family:var(--mono); font-size:11px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--faint)}
+.pb-kop span{margin-left:auto; color:var(--gold); font-weight:700; letter-spacing:0}
+.pb-rij{display:flex; align-items:center; gap:9px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+.pb-rij.bonus{background:rgba(245,197,24,.06); border-radius:7px; padding:7px 9px; margin:2px -9px; border-bottom:none}
+.pb-tk{font-family:var(--mono); font-size:14px; width:14px; text-align:center; flex:0 0 auto}
+.pb-slot{font-family:var(--mono); font-size:11px; color:var(--faint); width:40px; white-space:nowrap; flex:0 0 auto; text-transform:uppercase}
+.pb-mid{flex:1; min-width:0}
+.pb-pick{display:block; font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pb-echt{display:block; font-size:11px; color:var(--dim); font-family:var(--mono)}
+.pb-ptn{font-family:var(--mono); font-size:15px; font-weight:700; flex:0 0 auto}
+.pb-tot{display:flex; align-items:baseline; margin-top:14px; padding-top:12px; border-top:1px solid var(--line);
+  font-size:14px}
+.pb-tot b{margin-left:auto; font-family:var(--mono); font-size:20px; color:var(--gold)}
+
+/* ---------- seizoensrapport ---------- */
+.rap-tot{display:flex; align-items:baseline; gap:8px; margin:2px 0 14px}
+.rap-tot b{font-family:var(--mono); font-size:34px; color:var(--gold); line-height:1}
+.rap-tot span{color:var(--dim); font-size:13px}
+.rap-kop{font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:6px}
+.rap-rij{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+.rap-n{font-family:var(--mono); font-size:14px; font-weight:700; width:34px; text-align:right; flex:0 0 auto}
+.rap-lab{flex:1; font-size:13px}
+.rap-ptn{font-family:var(--mono); font-size:14px; font-weight:700; flex:0 0 auto}
+.rap-race{display:flex; align-items:center; gap:10px; width:100%; background:none; border:none;
+  border-bottom:1px solid rgba(255,255,255,.05); color:var(--txt); padding:10px 0; cursor:pointer;
+  font:inherit; text-align:left; -webkit-tap-highlight-color:transparent}
+.rap-race:active{background:rgba(255,255,255,.04)}
+.rr-vlag{font-size:18px; flex:0 0 auto}
+.rr-naam{flex:1; font-weight:700; font-size:14px; min-width:0}
+.rr-sub{display:block; font-weight:400; font-size:11px; color:var(--dim); font-family:var(--mono)}
+.rr-ptn{font-family:var(--mono); font-size:17px; font-weight:700; color:var(--gold); flex:0 0 auto}
+.rr-ptn span{font-size:10px; color:var(--dim); font-weight:400}
+.rap-race .chev{color:var(--faint); font-size:18px; flex:0 0 auto}
 /* ---------- calendar ---------- */
 .cal-row{display:flex; align-items:center; gap:12px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,.05)}
 .cal-row:last-child{border:none}
@@ -273,14 +317,22 @@ nav button.active .nv-ic{color:var(--red2)}
 .tr-pit{width:28px;font-size:10px;color:var(--faint);font-family:var(--mono)}
 .tr-gap{flex:1;text-align:right;font-family:var(--mono);font-size:13px}
 .tr-tot{display:block;font-size:10px;color:var(--faint)}
-.tel{padding:10px 8px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.05)}
-.tel-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.tel-chip{font-size:10px;font-family:var(--mono);border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--dim)}
-.tel-rij{display:flex;align-items:center;gap:8px;margin-top:4px}
-.tel-lab{font-size:10px;color:var(--faint);width:26px;text-transform:uppercase}
-.tel-baan{flex:1;height:7px;background:var(--bg3);border-radius:4px;overflow:hidden}
-.tel-baan span{display:block;height:100%;border-radius:4px;transition:width .2s}
-.tel-w{font-family:var(--mono);font-size:11px;width:26px;text-align:right;color:var(--dim)}
+/* uitklapper per coureur: bandenstrategie */
+.cblok{padding:10px 10px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(255,255,255,.05)}
+.stintbalk{display:flex;gap:2px;height:20px;border-radius:5px;overflow:hidden;margin-bottom:9px}
+.sb-vak{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;
+  font-weight:700;min-width:12px;letter-spacing:.02em}
+.stintlijst{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.st-rij{display:flex;align-items:center;gap:7px;font-size:12px}
+.st-rij.nu{background:rgba(245,197,24,.09);border-radius:5px;padding:2px 5px;margin:-2px -5px}
+.st-band{font-weight:700;min-width:64px}
+.st-ronden{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.st-aantal{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint);text-align:right}
+.cb-rij{display:flex;align-items:baseline;gap:8px;margin-top:5px;font-size:12px}
+.cb-lab{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;min-width:60px}
+.cb-w{flex:1;color:var(--dim);display:flex;flex-wrap:wrap;gap:4px;align-items:baseline}
+.pit-chip{font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--txt)}
+.cb-voet{margin-top:9px;font-size:11px;color:var(--faint)}
 .uitklap{display:flex;align-items:center;width:100%;background:none;border:none;color:var(--txt);
   font:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:0}
 .melding{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -682,6 +734,109 @@ function scoreRound(pred, result, quali){
   }
   out.total = out.race + out.quali;
   return out;
+}
+
+/* ---- zelfde telling als hierboven, maar dan regel voor regel uitgeschreven ----
+   Wordt gebruikt voor de puntenopbouw per race en het seizoensrapport.
+   Het totaal is per definitie gelijk aan scoreRound() — daar is een test voor. */
+function detailTop3(pred, slots, top3, near){
+  const at = pos => (top3.find(r => r.pos === pos) || {}).driverId || null;
+  const inTop = id => top3.some(r => r.driverId === id);
+  let exact = 0;
+  const regels = slots.map(([key, pos, pts, label]) => {
+    const pick = pred[key] || null;
+    const echt = at(pos);
+    let status = 'leeg', punten = 0;
+    if(pick){
+      if(echt === pick){ status = 'exact'; punten = pts; exact++; }
+      else if(inTop(pick)){ status = 'near'; punten = near; }
+      else status = 'miss';
+    }
+    return { key, label, pick, echt, status, punten };
+  });
+  return { regels, exact, sub: regels.reduce((a, r) => a + r.punten, 0) };
+}
+
+function scoreDetail(pred, result, quali){
+  const R = SCORING.race, Q = SCORING.quali;
+  const uit = { quali:null, race:null, total:0, joker:!!(pred && pred.joker) };
+  if(!pred) return uit;
+
+  if(quali && quali.length){
+    const j = detailTop3(pred, [['q1',1,Q.p1,'Q1'],['q2',2,Q.p2,'Q2'],['q3',3,Q.p3,'Q3']], quali, Q.near);
+    const bonus = j.exact === 3 ? Q.perfect : 0;
+    uit.quali = { regels:j.regels, exact:j.exact, bonus, bonusLabel:'Alle drie exact', sub:j.sub + bonus };
+  }
+
+  if(result){
+    const top3 = result.rows.filter(r => r.pos <= 3);
+    const j = detailTop3(pred, [['p1',1,R.p1,'P1'],['p2',2,R.p2,'P2'],['p3',3,R.p3,'P3']], top3, R.near);
+    const bonus = j.exact === 3 ? R.perfect : 0;
+    let fl = null;
+    if(pred.fl && result.fl){
+      const goed = pred.fl === result.fl;
+      fl = { key:'fl', label:'⚡ Snelste ronde', pick:pred.fl, echt:result.fl,
+             status: goed ? 'exact' : 'miss', punten: goed ? R.fl : 0, kort:'⚡ SR' };
+    }
+    const voorJoker = j.sub + bonus + (fl ? fl.punten : 0);
+    uit.race = { regels:j.regels, exact:j.exact, bonus, bonusLabel:'Perfect podium', fl,
+                 voorJoker, jokerExtra: pred.joker ? voorJoker : 0,
+                 sub: pred.joker ? voorJoker * 2 : voorJoker };
+  }
+  uit.total = (uit.quali ? uit.quali.sub : 0) + (uit.race ? uit.race.sub : 0);
+  return uit;
+}
+
+/* ---- alle rondes van één speler opgeteld per categorie ---- */
+function seizoensRapport(playerId){
+  const R = SCORING.race, Q = SCORING.quali;
+  const cat = {
+    qExact:{label:'Kwali exact op de plek', n:0, ptn:0},
+    qNear: {label:'Kwali wel top 3, andere plek', n:0, ptn:0},
+    qMis:  {label:'Kwali ernaast', n:0, ptn:0},
+    qBonus:{label:'Kwali alle drie exact', n:0, ptn:0},
+    rExact:{label:'Race exact op de plek', n:0, ptn:0},
+    rNear: {label:'Race wel podium, andere plek', n:0, ptn:0},
+    rMis:  {label:'Race ernaast', n:0, ptn:0},
+    rBonus:{label:'Perfect podium', n:0, ptn:0},
+    fl:    {label:'⚡ Snelste ronde goed', n:0, ptn:0},
+    joker: {label:'🃏 Joker — racepunten verdubbeld', n:0, ptn:0},
+  };
+  const rondes = [];
+  let totaal = 0;
+  for(const r of S.races){
+    const res = S.results[r.round] || null;
+    const quali = S.qualis[r.round] || null;
+    if(!res && !quali) continue;
+    const pr = predOf(r.round, playerId);
+    if(!pr) continue;
+    const d = scoreDetail(pr, res, quali);
+    totaal += d.total;
+    rondes.push({ race:r, detail:d });
+    if(d.quali){
+      for(const g of d.quali.regels){
+        if(g.status === 'exact'){ cat.qExact.n++; cat.qExact.ptn += g.punten; }
+        else if(g.status === 'near'){ cat.qNear.n++; cat.qNear.ptn += g.punten; }
+        else if(g.status === 'miss') cat.qMis.n++;
+      }
+      if(d.quali.bonus){ cat.qBonus.n++; cat.qBonus.ptn += d.quali.bonus; }
+    }
+    if(d.race){
+      // basispunten hier, de verdubbeling van de joker krijgt z'n eigen regel —
+      // zo telt de kolom precies op tot het totaal
+      for(const g of d.race.regels){
+        if(g.status === 'exact'){ cat.rExact.n++; cat.rExact.ptn += g.punten; }
+        else if(g.status === 'near'){ cat.rNear.n++; cat.rNear.ptn += g.punten; }
+        else if(g.status === 'miss') cat.rMis.n++;
+      }
+      if(d.race.bonus){ cat.rBonus.n++; cat.rBonus.ptn += d.race.bonus; }
+      if(d.race.fl && d.race.fl.status === 'exact'){ cat.fl.n++; cat.fl.ptn += d.race.fl.punten; }
+      if(d.joker && d.race.jokerExtra){ cat.joker.n++; cat.joker.ptn += d.race.jokerExtra; }
+    }
+  }
+  const som = cat.qExact.ptn + cat.qNear.ptn + cat.qBonus.ptn + cat.rExact.ptn +
+              cat.rNear.ptn + cat.rBonus.ptn + cat.fl.ptn + cat.joker.ptn;
+  return { cat, rondes, totaal, som };
 }
 
 /* ============================================================
@@ -1151,7 +1306,7 @@ function renderStandings(){
     const cup = computeCup();
     html += `<div class="card"><div class="checker"></div><h2>${esc(CONFIG.cupName)} · ${S.season}</h2>`;
     html += cup.map((row,i) => `
-      <div class="cup-row ${i===0 && row.total>0 ? 'first' : ''}">
+      <button class="cup-row klikbaar ${i===0 && row.total>0 ? 'first' : ''}" onclick="openSeizoensRapport('${row.player.id}')">
         <span class="cup-rank">${i===0 && row.total>0 ? '👑' : i+1}</span>
         <span class="cup-em">${row.player.emoji}</span>
         <div class="cup-main">
@@ -1159,8 +1314,9 @@ function renderStandings(){
           <div class="cup-sub">${row.exact} exact · ${row.perfect}× perfect podium · 🃏 ${jokersLeft(row.player.id)} over</div>
         </div>
         <div class="cup-pts">${row.total}<span> ptn</span></div>
-      </div>`).join('');
-    html += `</div>`;
+        <span class="chev">›</span>
+      </button>`).join('');
+    html += `<div class="small muted" style="margin-top:8px">Tik op een naam voor het volledige seizoensrapport.</div></div>`;
 
     // race-matrix
     const done = S.races.filter(r => S.results[r.round] || S.qualis[r.round]);
@@ -1174,11 +1330,14 @@ function renderStandings(){
           <td class="pname">${row.player.emoji} ${esc(row.player.name)}</td>
           ${done.map(r => {
             const v = row.perRound[r.round];
-            return `<td class="${v != null && v === best[r.round] && v > 0 ? 'best' : ''}">${v ?? '·'}</td>`;
+            const cls = v != null && v === best[r.round] && v > 0 ? 'best' : '';
+            if(v == null) return `<td class="${cls}">·</td>`;
+            return `<td class="${cls} tik" onclick="openPuntenUitleg('${row.player.id}', ${r.round})">${v}</td>`;
           }).join('')}
           <td class="best">${row.total}</td>
         </tr>`).join('')}
-      </table></div></div>`;
+      </table></div>
+      <div class="small muted" style="margin-top:8px">Tik op een getal om te zien waar die punten vandaan komen.</div></div>`;
     } else {
       html += `<div class="banner">📊 Zodra de eerste race met voorspellingen erop zit, verschijnt hier jullie onderlinge stand per race.</div>`;
     }
@@ -1209,6 +1368,104 @@ function renderStandings(){
   }
 
   el.innerHTML = html;
+}
+
+/* ============================================================
+   Puntenopbouw: per race en over het seizoen
+   ============================================================ */
+const STATUS_KLEUR = { exact:'var(--green)', near:'var(--gold)', miss:'var(--faint)', leeg:'var(--faint)' };
+const STATUS_TEKST = { exact:'exact goed', near:'wel top 3', miss:'ernaast', leeg:'niet ingevuld' };
+
+function naamVan(id){ const d = driverById(id); return d ? (d.name || id) : '—'; }
+function kortVan(id){ const d = driverById(id); return d ? (d.code || d.family || d.name) : '—'; }
+
+function regelRij(g){
+  const kl = STATUS_KLEUR[g.status];
+  const teken = g.status === 'exact' ? '✓' : g.status === 'near' ? '~' : g.status === 'miss' ? '✗' : '·';
+  return `<div class="pb-rij">
+    <span class="pb-tk" style="color:${kl}">${teken}</span>
+    <span class="pb-slot">${esc(g.kort || g.label)}</span>
+    <div class="pb-mid">
+      <span class="pb-pick">${g.pick ? esc(naamVan(g.pick)) : '<span class="muted">niet ingevuld</span>'}</span>
+      <span class="pb-echt">${g.echt ? 'werd: ' + esc(kortVan(g.echt)) : ''} · ${STATUS_TEKST[g.status]}</span>
+    </div>
+    <span class="pb-ptn" style="color:${g.punten ? 'var(--gold)' : 'var(--faint)'}">${g.punten ? '+' + g.punten : '0'}</span>
+  </div>`;
+}
+
+function openPuntenUitleg(playerId, round){
+  const speler = playerById(playerId); if(!speler) return;
+  const race = S.races.find(r => r.round === round);
+  const pr = predOf(round, playerId);
+  const d = scoreDetail(pr, S.results[round] || null, S.qualis[round] || null);
+  const sheet = $('#pickerSheet');
+
+  let html = `<h3>${speler.emoji} ${esc(speler.name)} · ${race ? flagOf(race.country) + ' ' + esc(race.name) : 'Ronde ' + round}</h3>`;
+  if(!pr){
+    html += `<div class="loading">Niets voorspeld voor deze race.</div>`;
+  } else {
+    if(d.quali){
+      html += `<div class="pb-kop">🕐 Kwalificatie <span>${d.quali.sub} ptn</span></div>`;
+      html += d.quali.regels.map(regelRij).join('');
+      if(d.quali.bonus) html += `<div class="pb-rij bonus"><span class="pb-tk">★</span>
+        <span class="pb-slot"></span><div class="pb-mid"><span class="pb-pick">${esc(d.quali.bonusLabel)}</span>
+        <span class="pb-echt">bonus</span></div><span class="pb-ptn" style="color:var(--gold)">+${d.quali.bonus}</span></div>`;
+    }
+    if(d.race){
+      html += `<div class="pb-kop">🏁 Race <span>${d.race.sub} ptn</span></div>`;
+      html += d.race.regels.map(regelRij).join('');
+      if(d.race.fl) html += regelRij(d.race.fl);
+      if(d.race.bonus) html += `<div class="pb-rij bonus"><span class="pb-tk">★</span>
+        <span class="pb-slot"></span><div class="pb-mid"><span class="pb-pick">${esc(d.race.bonusLabel)}</span>
+        <span class="pb-echt">bonus</span></div><span class="pb-ptn" style="color:var(--gold)">+${d.race.bonus}</span></div>`;
+      if(d.joker) html += `<div class="pb-rij bonus"><span class="pb-tk">🃏</span>
+        <span class="pb-slot"></span><div class="pb-mid"><span class="pb-pick">Joker — racepunten ×2</span>
+        <span class="pb-echt">${d.race.voorJoker} werd ${d.race.sub}</span></div>
+        <span class="pb-ptn" style="color:var(--gold)">+${d.race.jokerExtra}</span></div>`;
+    }
+    if(!d.quali && !d.race) html += `<div class="loading">De uitslag van deze race is er nog niet.</div>`;
+    else html += `<div class="pb-tot"><span>Totaal deze race</span><b>${d.total} ptn</b></div>`;
+  }
+  html += `<button class="pin-back" onclick="closeOverlays()">Sluiten</button>`;
+  sheet.innerHTML = html;
+  $('#pickerOverlay').classList.add('open');
+}
+
+function openSeizoensRapport(playerId){
+  const speler = playerById(playerId); if(!speler) return;
+  const rap = seizoensRapport(playerId);
+  const volgorde = ['qExact','qNear','qBonus','rExact','rNear','rBonus','fl','joker','qMis','rMis'];
+  const sheet = $('#pickerSheet');
+
+  let html = `<h3>${speler.emoji} ${esc(speler.name)} · seizoen ${S.season}</h3>
+    <div class="rap-tot"><b>${rap.totaal}</b><span>punten uit ${rap.rondes.length} race${rap.rondes.length===1?'':'s'}</span></div>`;
+
+  if(!rap.rondes.length){
+    html += `<div class="loading">Nog geen races met voorspellingen.</div>`;
+  } else {
+    html += `<div class="rap-kop">Waar komen die punten vandaan?</div>`;
+    html += volgorde.map(k => {
+      const c = rap.cat[k];
+      if(!c.n) return '';
+      const grijs = k === 'qMis' || k === 'rMis';
+      return `<div class="rap-rij">
+        <span class="rap-n">${c.n}×</span>
+        <span class="rap-lab">${esc(c.label)}</span>
+        <span class="rap-ptn" style="color:${grijs ? 'var(--faint)' : 'var(--gold)'}">${grijs ? '—' : '+' + c.ptn}</span>
+      </div>`;
+    }).join('');
+    html += `<div class="rap-kop" style="margin-top:14px">Per race — tik voor de opbouw</div>`;
+    html += rap.rondes.slice().reverse().map(r => `
+      <button class="rap-race" onclick="openPuntenUitleg('${playerId}', ${r.race.round})">
+        <span class="rr-vlag">${flagOf(r.race.country)}</span>
+        <span class="rr-naam">${esc(r.race.name)}<span class="rr-sub">Ronde ${r.race.round}${r.detail.joker ? ' · 🃏' : ''}</span></span>
+        <span class="rr-ptn">${r.detail.total}<span> ptn</span></span>
+        <span class="chev">›</span>
+      </button>`).join('');
+  }
+  html += `<button class="pin-back" onclick="closeOverlays()">Sluiten</button>`;
+  sheet.innerHTML = html;
+  $('#pickerOverlay').classList.add('open');
 }
 
 /* ============================================================
@@ -1415,7 +1672,10 @@ boot();
 const OF1 = 'https://api.openf1.org/v1';
 
 async function of1(pad){
-  const r = await fetch(OF1 + pad);
+  // via de eigen tussenpost als die er is — dan gelden de ruimere limieten en
+  // hoeft niemand ergens in te loggen; anders rechtstreeks (werkt voor oude sessies)
+  const proxy = (typeof liveProxy === 'function') ? liveProxy() : '';
+  const r = await fetch((proxy ? proxy + '/v1' : OF1) + pad);
   if(r.status === 404) return [];
   if(!r.ok) throw new Error('OpenF1 ' + r.status);
   return r.json();
@@ -1424,7 +1684,9 @@ const rustig = () => new Promise(r => setTimeout(r, 350));   // binnen 3 verzoek
 
 // alle sessies van het seizoen (klein, 6 uur cachen)
 async function of1Sessions(season){
-  const d = await cachedJSON(`${OF1}/sessions?year=${season}`, 6*HOUR);
+  const proxy = (typeof liveProxy === 'function') ? liveProxy() : '';
+  const basis = proxy ? proxy + '/v1' : OF1;
+  const d = await cachedJSON(`${basis}/sessions?year=${season}`, 6*HOUR);
   return Array.isArray(d) ? d : [];
 }
 
@@ -1703,9 +1965,9 @@ async function laadAnalyseSessies(){
    ============================================================ */
 const L = {
   aan:false, bron:'live', sessionKey:null, sessie:null,
-  coureurs:{}, pos:{}, iv:{}, band:{}, pits:{}, loc:{},
+  coureurs:{}, pos:{}, iv:{}, band:{}, pits:{}, stints:{}, pitDetail:{}, startPos:{},
   meldingen:[], weer:null, ronde:null, maxRonde:null, beste:{}, laatste:{}, rondeVan:{},
-  baan:null, kaartOpen:false, gekozen:null, tel:null,
+  gekozen:null,
   sinds:{}, klok:null, snelheid:1, timer:null, fout:null, laatsteUpdate:null,
 };
 
@@ -1813,25 +2075,6 @@ function of1Q(pad){
   return p;
 }
 
-/* ---- baanvorm: één snelle ronde → omtrek, voor altijd bewaard ---- */
-async function baanVorm(sessionKey, circuitKey){
-  const sleutel = 'baan:' + (circuitKey || sessionKey);
-  const cache = lsGet(sleutel);
-  if(cache) return cache;
-  const laps = await of1L(`/laps?session_key=${sessionKey}`);
-  const geldig = laps.filter(l => l.lap_duration && l.date_start);
-  if(!geldig.length) return null;
-  const beste = geldig.sort((a,b) => a.lap_duration - b.lap_duration)[0];
-  const t0 = new Date(beste.date_start), t1 = new Date(t0.getTime() + beste.lap_duration*1000);
-  const loc = await of1L(`/location?session_key=${sessionKey}&driver_number=${beste.driver_number}&date>=${isoKort(t0)}&date<${isoKort(t1)}`);
-  const pts = loc.filter(p => p.x || p.y).map(p => [p.x, p.y]);
-  if(pts.length < 40) return null;
-  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1]);
-  const vorm = { pts, minX:Math.min(...xs), maxX:Math.max(...xs), minY:Math.min(...ys), maxY:Math.max(...ys) };
-  lsSet(sleutel, vorm);
-  return vorm;
-}
-
 /* ---- welke sessie loopt er nu? ---- */
 async function liveSessieNu(){
   const alle = await of1Sessions(S.season);
@@ -1852,26 +2095,46 @@ async function liveTik(){
     const tot = `&date<=${isoKort(T)}`;
 
     L.tikNr = (L.tikNr || 0) + 1;
-    const traag = L.tikNr % 4 === 1;          // stints/pits/meldingen/weer elke 4e ronde
+    // banden zijn nu de hoofdmoot → elke 2e ronde; vlaggen/weer elke 4e.
+    // Zonder baankaart en telemetrie past dit ruim onder de 60 verzoeken per minuut.
+    const banden = L.tikNr % 2 === 1;
+    const traag  = L.tikNr % 4 === 1;
 
     const pos = await of1Q(`/position?session_key=${K}${na('pos')}${tot}`).catch(()=>[]);
     const iv  = await of1Q(`/intervals?session_key=${K}${na('iv')}${tot}`).catch(()=>[]);
     const lp  = await of1Q(`/laps?session_key=${K}${L.sinds.lp ? `&date_start>${isoKort(L.sinds.lp)}` : ''}`).catch(()=>[]);
-    const st  = traag ? await of1Q(`/stints?session_key=${K}`).catch(()=>[]) : [];
-    const pit = traag ? await of1Q(`/pit?session_key=${K}`).catch(()=>[]) : [];
+    const st  = banden ? await of1Q(`/stints?session_key=${K}`).catch(()=>[]) : [];
+    const pit = banden ? await of1Q(`/pit?session_key=${K}`).catch(()=>[]) : [];
     const rc  = traag ? await of1Q(`/race_control?session_key=${K}${na('rc')}${tot}`).catch(()=>[]) : [];
     const we  = traag ? await of1Q(`/weather?session_key=${K}${na('we')}${tot}`).catch(()=>[]) : [];
 
-    for(const p of pos){ L.pos[p.driver_number] = p.position; L.sinds.pos = p.date; }
+    for(const p of pos){
+      if(L.startPos[p.driver_number] == null) L.startPos[p.driver_number] = p.position;
+      L.pos[p.driver_number] = p.position; L.sinds.pos = p.date;
+    }
     for(const i of iv){ L.iv[i.driver_number] = {gap:i.gap_to_leader, iv:i.interval}; L.sinds.iv = i.date; }
-    for(const s of st){
-      const b = L.band[s.driver_number];
-      if(!b || s.stint_number >= b.nr) L.band[s.driver_number] = {nr:s.stint_number, band:s.compound, van:s.lap_start, leeftijd:s.tyre_age_at_start};
+    if(st.length){
+      const perCoureur = {};
+      for(const x of st){
+        (perCoureur[x.driver_number] = perCoureur[x.driver_number] || []).push({
+          nr: x.stint_number, band: x.compound, van: x.lap_start, tot: x.lap_end,
+          leeftijd: x.tyre_age_at_start,
+        });
+      }
+      for(const num in perCoureur){
+        const lijst = perCoureur[num].sort((a,b) => a.nr - b.nr);
+        L.stints[num] = lijst;
+        L.band[num] = lijst[lijst.length - 1];
+      }
     }
     if(pit.length){
-      const telling = {};
-      for(const p of pit) telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
-      L.pits = telling;
+      const telling = {}, detail = {};
+      for(const p of pit){
+        telling[p.driver_number] = (telling[p.driver_number]||0) + 1;
+        (detail[p.driver_number] = detail[p.driver_number] || []).push({ ronde:p.lap_number, duur:p.pit_duration });
+      }
+      for(const num in detail) detail[num].sort((a,b) => (a.ronde||0) - (b.ronde||0));
+      L.pits = telling; L.pitDetail = detail;
     }
     for(const l of lp){
       if(l.date_start) L.sinds.lp = l.date_start;
@@ -1891,9 +2154,6 @@ async function liveTik(){
     const rondes = Object.values(L.rondeVan);
     if(rondes.length) L.ronde = Math.max(L.ronde||0, ...rondes);
 
-    if(L.kaartOpen) await liveKaartTik(T);
-    if(L.gekozen) await liveTelemetrieTik(T);
-
     L.fout = null; L.laatsteUpdate = Date.now();
   }catch(e){
     L.fout = e.message;
@@ -1901,35 +2161,12 @@ async function liveTik(){
   if(S.view === 'live') renderLive();
 }
 
-async function laadBaan(){
-  if(L.baan || L.baanBezig) return;
-  L.baanBezig = true;
-  try{
-    L.baan = await baanVorm(L.sessionKey, L.sessie && L.sessie.circuit_key);
-  }catch(e){ /* volgende tik opnieuw */ }
-  L.baanBezig = false;
-  if(S.view === 'live') renderLive();
-}
-
-async function liveKaartTik(T){
-  if(!L.baan){ await laadBaan(); }
-  const venster = L.bron === 'replay' ? Math.max(2500, 1200 * L.snelheid) : 2500;
-  const a = new Date(new Date(T).getTime() - venster);
-  const loc = await of1Q(`/location?session_key=${L.sessionKey}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
-  for(const p of loc) if(p.x || p.y) L.loc[p.driver_number] = {x:p.x, y:p.y};
-}
-async function liveTelemetrieTik(T){
-  const vensterT = L.bron === 'replay' ? Math.max(3000, 1200 * L.snelheid) : 3000;
-  const a = new Date(new Date(T).getTime() - vensterT);
-  const cd = await of1Q(`/car_data?session_key=${L.sessionKey}&driver_number=${L.gekozen}&date>=${isoKort(a)}&date<=${isoKort(T)}`).catch(()=>[]);
-  if(cd.length) L.tel = cd[cd.length-1];
-}
-
 /* ---- starten / stoppen ---- */
 async function liveStart(sessionKey, bron, startTijd){
   L.aan = true; L.bron = bron || 'live'; L.sessionKey = sessionKey;
-  L.pos={}; L.iv={}; L.band={}; L.pits={}; L.loc={}; L.meldingen=[]; L.sinds={}; L.ronde=null;
-  L.beste={}; L.laatste={}; L.rondeVan={};
+  L.pos={}; L.iv={}; L.band={}; L.pits={}; L.stints={}; L.pitDetail={}; L.startPos={};
+  L.meldingen=[]; L.sinds={}; L.ronde=null;
+  L.beste={}; L.laatste={}; L.rondeVan={}; L.gekozen=null;
   const alle = await of1Sessions(S.season).catch(()=>[]);
   L.sessie = alle.find(s => s.session_key === sessionKey) || null;
   if(L.bron === 'replay'){
@@ -1956,8 +2193,7 @@ async function liveStart(sessionKey, bron, startTijd){
   renderLive();
 }
 function liveStop(){ L.aan=false; clearInterval(L.timer); L.timer=null; }
-function liveKaartToggle(){ L.kaartOpen = !L.kaartOpen; renderLive(); if(L.kaartOpen){ laadBaan(); liveTik(); } }
-function liveKiesCoureur(num){ L.gekozen = (L.gekozen === num ? null : num); L.tel = null; renderLive(); if(L.gekozen) liveTik(); }
+function liveKiesCoureur(num){ L.gekozen = (L.gekozen === num ? null : num); renderLive(); }
 
 /* ---- voorlopige punten: hoe staan jullie ervoor als het NU zo eindigt? ---- */
 function voorlopigePunten(){
@@ -1990,7 +2226,10 @@ const VLAG_KLEUR = { GREEN:'#2fd06f', YELLOW:'#f5c518', DOUBLE_YELLOW:'#f5c518',
 
 function isRaceSessie(){
   const n = L.sessie && L.sessie.session_name;
-  return n === 'Race' || n === 'Sprint';
+  if(n) return n === 'Race' || n === 'Sprint';
+  // sessie-info nog niet binnen: aan pitstops en intervallen is een race ook te herkennen
+  return Object.keys(L.pitDetail || {}).length > 0 ||
+         Object.values(L.iv || {}).some(v => v && v.iv != null && !isNaN(+v.iv));
 }
 
 function renderLive(){
@@ -2049,7 +2288,7 @@ function renderLive(){
         <span class="tr-band">${b ? `<span class="band-dot" style="background:${BAND_KLEUR[b.band]||BAND_KLEUR.UNKNOWN}"></span>${bandLeeftijd ? bandLeeftijd : ''}` : ''}</span>
         <span class="tr-pit">${isRaceSessie() && L.pits[r.num] ? 'P'+L.pits[r.num] : ''}</span>
         <span class="tr-gap">${esc(gapTxt)}<span class="tr-tot">${esc(totTxt)}</span></span>
-      </button>` + (L.gekozen === r.num ? telemetrieBlok(r.num) : '');
+      </button>` + (L.gekozen === r.num ? coureurBlok(r.num) : '');
     }).join('') + `</div>`;
   }
   html += `</div>`;
@@ -2069,33 +2308,7 @@ function renderLive(){
     html += `<div class="small muted" style="margin-top:8px">Voorlopig — telt pas mee als de vlag valt.</div></div>`;
   }
 
-  // --- 3. baankaart (ingeklapt) ---
-  html += `<div class="card"><button class="uitklap" onclick="liveKaartToggle()">
-      <span style="flex:1;text-align:left">🗺️ Baankaart</span>
-      <span class="muted small">${L.kaartOpen ? 'verbergen' : 'tonen'} ${L.kaartOpen?'▲':'▼'}</span></button>`;
-  if(L.kaartOpen){
-    if(!L.baan) html += `<div class="loading">Circuit tekenen…</div>`;
-    else {
-      const W=320,H=250,pad=16, v=L.baan;
-      const sx = x => pad + (x - v.minX)/(v.maxX - v.minX)*(W-2*pad);
-      const sy = y => H-pad - (y - v.minY)/(v.maxY - v.minY)*(H-2*pad);
-      const d = 'M ' + v.pts.map(p => `${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(' L ') + ' Z';
-      const autos = Object.entries(L.loc).map(([n,p]) => {
-        const pos = L.pos[n]; const uit = L.gekozen === +n;
-        return `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="${uit?6:4.2}"
-          fill="${kleur(+n)}" stroke="#0b0b10" stroke-width="1.2"/>
-          ${uit||pos<=3 ? `<text x="${(sx(p.x)+7).toFixed(1)}" y="${(sy(p.y)+3).toFixed(1)}" fill="#fff" font-size="8" font-family="monospace">${esc(code(+n))}</text>` : ''}`;
-      }).join('');
-      html += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px">
-        <path d="${d}" fill="none" stroke="#23232f" stroke-width="7" stroke-linejoin="round"/>
-        <path d="${d}" fill="none" stroke="#3a3a4a" stroke-width="1.4" stroke-linejoin="round"/>
-        ${autos}</svg>
-        <div class="small muted">Ververst elke 5 seconden.</div>`;
-    }
-  }
-  html += `</div>`;
-
-  // --- 4. meldingen wedstrijdleiding ---
+  // --- 3. meldingen wedstrijdleiding ---
   if(L.meldingen.length){
     html += `<div class="card"><h2>Wedstrijdleiding</h2>${L.meldingen.slice(0,6).map(m => `
       <div class="melding">
@@ -2108,23 +2321,90 @@ function renderLive(){
   el.innerHTML = html;
 }
 
-function telemetrieBlok(num){
-  const t = L.tel;
-  if(!t) return `<div class="tel"><span class="loading" style="padding:6px">telemetrie laden…</span></div>`;
-  const balk = (label, waarde, max, kleur) => `
-    <div class="tel-rij"><span class="tel-lab">${label}</span>
-      <span class="tel-baan"><span style="width:${Math.min(100, waarde/max*100)}%;background:${kleur}"></span></span>
-      <span class="tel-w">${waarde}</span></div>`;
-  return `<div class="tel">
-    <div class="tel-top"><b style="font-size:20px;font-family:var(--mono)">${t.speed}</b><span class="muted small"> km/u</span>
-      <span class="tel-chip">${t.n_gear ? 'V'+t.n_gear : '—'}</span>
-      <span class="tel-chip" style="${t.drs>=10?'color:var(--green);border-color:var(--green)':''}">DRS</span>
-      <span class="tel-chip">${Math.round(t.rpm/100)/10}k tpm</span></div>
-    ${balk('gas', t.throttle, 100, 'var(--green)')}
-    ${balk('rem', t.brake, 100, 'var(--red2)')}
-  </div>`;
+/* ---- uitklapper per coureur: het hele bandenverhaal ---- */
+const BAND_KORT = { SOFT:'S', MEDIUM:'M', HARD:'H', INTERMEDIATE:'I', WET:'W', UNKNOWN:'?' };
+
+function coureurBlok(num){
+  const c = L.coureurs[num] || {};
+  const stints = L.stints[num] || [];
+  const nu = L.rondeVan[num] || L.ronde || null;
+  const race = isRaceSessie();
+
+  // hoeveel ronden per stint — laatste stint loopt door tot de huidige ronde
+  const rijen = stints.map((st, i) => {
+    const laatste = i === stints.length - 1;
+    const eind = laatste ? (nu != null ? Math.max(nu, st.van || 1) : st.tot) : st.tot;
+    const van = st.van || 1;
+    const ronden = (eind != null && van != null) ? Math.max(1, eind - van + 1) : null;
+    const leeftijd = (st.leeftijd != null && ronden != null) ? st.leeftijd + ronden - 1 : null;
+    return { ...st, van, eind, ronden, leeftijd, laatste };
+  });
+  const totaal = rijen.reduce((a, r) => a + (r.ronden || 0), 0) || 1;
+
+  let html = '<div class="cblok">';
+
+  if(!stints.length){
+    html += '<div class="small muted" style="padding:2px 0 6px">Bandinfo komt zodra de sessie loopt…</div>';
+  } else {
+    // balk: elke stint een blokje, breedte = aantal ronden
+    html += '<div class="stintbalk">' + rijen.map(r => {
+      const kl = BAND_KLEUR[r.band] || BAND_KLEUR.UNKNOWN;
+      const donker = r.band === 'HARD';
+      return `<span class="sb-vak" style="flex:${r.ronden || 1};background:${kl};color:${donker?'#0b0b10':'#fff'}"
+        title="${esc(r.band||'?')} · ronde ${r.van}-${r.eind||'?'}">${(r.ronden||0) >= 3 ? (BAND_KORT[r.band]||'?') + ' ' + (r.ronden||'') : ''}</span>`;
+    }).join('') + '</div>';
+
+    html += '<div class="stintlijst">' + rijen.map((r, i) => `
+      <div class="st-rij ${r.laatste ? 'nu' : ''}">
+        <span class="band-dot" style="background:${BAND_KLEUR[r.band]||BAND_KLEUR.UNKNOWN}"></span>
+        <span class="st-band">${esc(bandNaam(r.band))}</span>
+        <span class="st-ronden">ronde ${r.van}${r.eind && r.eind !== r.van ? '–' + r.eind : ''}</span>
+        <span class="st-aantal">${r.ronden != null ? r.ronden + 'r' : ''}${
+          r.laatste && r.leeftijd != null ? ` · ${r.leeftijd} rondjes oud` : ''}</span>
+      </div>`).join('') + '</div>';
+  }
+
+  // pitstops met echte stilstandtijd
+  const pits = L.pitDetail[num] || [];
+  if(race && pits.length){
+    html += '<div class="cb-rij"><span class="cb-lab">Pitstops</span><span class="cb-w">' +
+      pits.map(p => `<span class="pit-chip">R${p.ronde ?? '?'}${p.duur != null ? ' · ' + pitTijd(p.duur) : ''}</span>`).join('') +
+      '</span></div>';
+  } else if(race){
+    html += '<div class="cb-rij"><span class="cb-lab">Pitstops</span><span class="cb-w muted">nog geen</span></div>';
+  }
+
+  // rondetijden
+  const laatsteR = L.laatste[num], besteR = L.beste[num];
+  if(laatsteR || besteR){
+    html += `<div class="cb-rij"><span class="cb-lab">Rondes</span><span class="cb-w">
+      ${laatsteR ? 'laatste <b>' + secToTijd(laatsteR) + '</b>' : ''}
+      ${besteR ? ' · snelste <b style="color:var(--gold)">' + secToTijd(besteR) + '</b>' : ''}</span></div>`;
+  }
+
+  // plekken gewonnen of verloren
+  const start = L.startPos[num], nuPos = L.pos[num];
+  if(race && start != null && nuPos != null && start !== nuPos){
+    const d = start - nuPos;
+    html += `<div class="cb-rij"><span class="cb-lab">Vanaf P${start}</span>
+      <span class="cb-w" style="color:${d>0?'var(--green)':'var(--red2)'}">${d>0?'▲ '+d+' plekken gewonnen':'▼ '+(-d)+' plekken verloren'}</span></div>`;
+  }
+
+  if(c.naam) html += `<div class="cb-voet">${esc(c.naam)}${c.team ? ' · ' + esc(c.team) : ''}</div>`;
+  return html + '</div>';
 }
 
+// een stilstand van minuten is geen pitstop maar een rode vlag — dan minuten tonen
+function pitTijd(sec){
+  const v = +sec;
+  if(!isFinite(v)) return '';
+  if(v < 60) return v.toFixed(1) + 's';
+  return Math.floor(v/60) + ':' + String(Math.round(v%60)).padStart(2,'0') + ' min';
+}
+
+function bandNaam(b){
+  return ({ SOFT:'Zacht', MEDIUM:'Medium', HARD:'Hard', INTERMEDIATE:'Intermediate', WET:'Regen' })[b] || (b || 'onbekend');
+}
 
 /* live-tabblad verschijnt alleen als er echt iets te zien is */
 async function regelLive(){
