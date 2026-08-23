@@ -333,6 +333,17 @@ nav button.active .nv-ic{color:var(--red2)}
 .cb-w{flex:1;color:var(--dim);display:flex;flex-wrap:wrap;gap:4px;align-items:baseline}
 .pit-chip{font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--txt)}
 .cb-voet{margin-top:9px;font-size:11px;color:var(--faint)}
+/* nieuwe-versie-balk */
+.updatebalk{position:fixed; left:12px; right:12px; bottom:70px; z-index:60; display:flex; align-items:center;
+  gap:10px; background:var(--bg2); border:1px solid var(--gold); border-radius:12px; padding:11px 14px;
+  box-shadow:0 8px 28px rgba(0,0,0,.5); font-size:13px; animation:fadein .25s ease}
+.updatebalk span{flex:1}
+.updatebalk button{background:var(--gold); color:#0b0b10; border:none; border-radius:8px; padding:7px 13px;
+  font:inherit; font-weight:700; cursor:pointer}
+/* live-zelftest */
+.zelftest{margin-top:12px; font-family:var(--mono); font-size:12px; line-height:1.7}
+.zelftest .ok{color:var(--green)} .zelftest .nok{color:var(--red2)}
+.bouwstempel{margin-top:10px; font-family:var(--mono); font-size:10px; color:var(--faint)}
 .uitklap{display:flex;align-items:center;width:100%;background:none;border:none;color:var(--txt);
   font:inherit;font-size:14px;font-weight:700;cursor:pointer;padding:0}
 .melding{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04)}
@@ -427,9 +438,13 @@ const CONFIG = {
 };
 // Puntentelling: kwali is de helft van de race waard; snelste ronde is een kleine bonus.
 const SCORING = {
-  race:  { p1:25, p2:18, p3:15, near:8, perfect:15, fl:10 },
-  quali: { p1:12, p2:9,  p3:7,  near:4, perfect:8 },
+  race:  { p1:25, p2:18, p3:15, near:8, perfect:35, fl:10 },
+  quali: { p1:12, p2:9,  p3:7,  near:4, perfect:18 },
 };
+
+/* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
+   ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
+const BUILD = '2026-08-23-perfect35';
 </script>
 <script>
 /* ============================================================
@@ -1643,12 +1658,14 @@ async function boot(){
   laadAnalyseSessies();          // op de achtergrond, blokkeert niets
   regelLive();                   // live-tabblad alleen tonen als er iets loopt
   setInterval(regelLive, 2*MIN);
+  checkUpdate(true);             // draaien we de nieuwste versie?
+  setInterval(() => checkUpdate(false), 15*MIN);
 
   // onverstuurde invoer opnieuw proberen zodra dat kan
   window.addEventListener('online', () => retryOutbox());
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible') retryOutbox();
-    else retryOutbox(true);              // app gaat naar de achtergrond → nu versturen
+    if(document.visibilityState === 'visible'){ retryOutbox(); checkUpdate(false); }
+    else retryOutbox(true);
   });
   window.addEventListener('pagehide', () => retryOutbox(true));
   await retryOutbox();
@@ -2237,7 +2254,10 @@ function renderLive(){
   if(!L.aan){
     el.innerHTML = `<div class="card"><h2>Live</h2>
       <p class="muted small">Er loopt nu geen sessie. Dit tabblad verschijnt vanzelf vanaf een half uur
-      voor de start van een training, kwalificatie of race.</p></div>`;
+      voor de start van een training, kwalificatie of race.</p>
+      <button class="tab-btn" style="margin-top:10px" onclick="liveZelftest()">Werkt live bij mij? Even testen</button>
+      <div class="zelftest" id="zelftest"></div>
+      <div class="bouwstempel">versie ${esc(BUILD)}</div></div>`;
     return;
   }
   const C = L.coureurs;
@@ -2257,7 +2277,9 @@ function renderLive(){
   </div>`;
   if(sc) html += `<div class="card" style="border-color:var(--gold);background:rgba(245,197,24,.1);padding:10px 14px">
     <b style="font-size:13px">⚠️ ${esc(sc.message)}</b></div>`;
-  if(L.fout) html += `<div class="banner">⚠ ${esc(L.fout)} — de rest van de app werkt gewoon door.</div>`;
+  if(L.fout) html += `<div class="banner">⚠ ${esc(L.fout)}<br>
+    <span class="small">De rest van de app werkt gewoon door.
+    <button class="tab-btn" style="padding:5px 10px;margin-top:6px" onclick="hardVerversen()">Ververs de app</button></span></div>`;
 
   // --- 1. timingtoren ---
   const opVolgorde = Object.entries(L.pos).map(([n,p]) => ({num:+n, pos:p}))
@@ -2404,6 +2426,96 @@ function pitTijd(sec){
 
 function bandNaam(b){
   return ({ SOFT:'Zacht', MEDIUM:'Medium', HARD:'Hard', INTERMEDIATE:'Intermediate', WET:'Regen' })[b] || (b || 'onbekend');
+}
+
+/* ============================================================
+   Draait iedereen wel de nieuwste versie?
+   Telefoons (vooral iPhones met de app op het beginscherm) houden een
+   pagina soms uren vast. Dan loopt iemand ongemerkt achter en werkt
+   bijvoorbeeld de live data niet. Daarom kijkt de app het zelf na.
+   ============================================================ */
+let updateBalkGetoond = false;
+
+async function nieuwsteVersie(){
+  if(!/^https?:$/.test(location.protocol)) throw new Error('alleen op het web te controleren');
+  const r = await fetch(location.pathname + '?v=' + Date.now(), { cache:'no-store' });
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  const m = (await r.text()).match(/const BUILD = '([^']+)'/);
+  if(!m) throw new Error('geen versiestempel gevonden');
+  return m[1];
+}
+
+async function checkUpdate(bijStart){
+  try{
+    const nieuw = await nieuwsteVersie();
+    if(nieuw === BUILD) return nieuw;
+    if(bijStart && !sessionStorage.getItem('pf-ververst')){
+      try{ sessionStorage.setItem('pf-ververst', '1'); }catch(e){}
+      location.reload();
+      return nieuw;
+    }
+    toonUpdateBalk();
+    return nieuw;
+  }catch(e){ return null; }
+}
+
+function toonUpdateBalk(){
+  if(updateBalkGetoond || document.querySelector('.updatebalk')) return;
+  updateBalkGetoond = true;
+  const d = document.createElement('div');
+  d.className = 'updatebalk';
+  d.innerHTML = `<span>✨ Er staat een nieuwere versie klaar</span>
+    <button onclick="hardVerversen()">Vernieuwen</button>`;
+  document.body.appendChild(d);
+}
+
+function hardVerversen(){
+  try{ sessionStorage.removeItem('pf-ververst'); }catch(e){}
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+
+/* ---- zelftest: werkt de live data op dit toestel? ---- */
+async function liveZelftest(){
+  const el = $('#zelftest'); if(!el) return;
+  const regels = [];
+  const zet = () => { el.innerHTML = regels.join('<br>'); };
+  regels.push('Even kijken…'); zet();
+
+  const proxy = liveProxy();
+  regels.length = 0;
+  regels.push(proxy ? '<span class="ok">✓</span> tussenstukje ingesteld'
+                    : '<span class="nok">✗</span> geen tussenstukje ingesteld — meld dit even aan Jay');
+  zet();
+  if(!proxy) return;
+
+  try{
+    const sessies = await of1L(`/sessions?year=${S.season}`);
+    regels.push(`<span class="ok">✓</span> verbinding werkt (${sessies.length} sessies gevonden)`);
+    const nu = Date.now();
+    const komt = sessies
+      .filter(x => new Date(x.date_start).getTime() > nu)
+      .sort((a,b) => new Date(a.date_start) - new Date(b.date_start))[0];
+    regels.push(komt
+      ? `<span class="ok">✓</span> volgende sessie: ${esc(sessieNaamNL(komt.session_name))} ${fullFmt.format(new Date(komt.date_start))}`
+      : '· geen volgende sessie gevonden');
+    regels.push('<span class="ok">✓</span> je bent helemaal klaar — het live-tabblad komt vanzelf');
+  }catch(e){
+    regels.push(`<span class="nok">✗</span> geen verbinding: ${esc(e.message || String(e))}`);
+    regels.push('Tik op Vernieuwen hierboven; helpt dat niet, laat Jay dit zien.');
+  }
+  try{
+    const nieuw = await nieuwsteVersie();
+    regels.push(nieuw === BUILD
+      ? '<span class="ok">✓</span> je draait de nieuwste versie'
+      : `<span class="nok">✗</span> je draait een oude versie (${esc(BUILD)}, nieuwste is ${esc(nieuw)})`);
+    if(nieuw !== BUILD) toonUpdateBalk();
+  }catch(e){}
+  zet();
+}
+
+function sessieNaamNL(n){
+  return ({ 'Qualifying':'Kwalificatie', 'Sprint Qualifying':'Sprintkwalificatie',
+            'Practice':'Training', 'Race':'Race', 'Sprint':'Sprint' })[n] || n;
 }
 
 /* live-tabblad verschijnt alleen als er echt iets te zien is */
