@@ -444,7 +444,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-08-23-perfect35';
+const BUILD = '2026-08-23-perfect35b';
 </script>
 <script>
 /* ============================================================
@@ -1499,7 +1499,7 @@ function openProfilePicker(firstRun){
         ${S.pins && S.pins[p.id] ? '' : '<span class="small" style="color:var(--gold)">nieuw · maak je code</span>'}
       </button>`).join('')}
     </div>
-    <button class="pin-back" onclick="openSleutelScherm()">🔴 Live data aanzetten</button>`;
+    <button class="pin-back" onclick="openLiveCheck()">🔴 Werkt de live data bij mij?</button>`;
   $('#profileOverlay').classList.add('open');
 }
 
@@ -2255,8 +2255,7 @@ function renderLive(){
     el.innerHTML = `<div class="card"><h2>Live</h2>
       <p class="muted small">Er loopt nu geen sessie. Dit tabblad verschijnt vanzelf vanaf een half uur
       voor de start van een training, kwalificatie of race.</p>
-      <button class="tab-btn" style="margin-top:10px" onclick="liveZelftest()">Werkt live bij mij? Even testen</button>
-      <div class="zelftest" id="zelftest"></div>
+      <button class="tab-btn" style="margin-top:10px" onclick="openLiveCheck()">Werkt live bij mij? Even testen</button>
       <div class="bouwstempel">versie ${esc(BUILD)}</div></div>`;
     return;
   }
@@ -2472,6 +2471,19 @@ function toonUpdateBalk(){
 function hardVerversen(){
   try{ sessionStorage.removeItem('pf-ververst'); }catch(e){}
   location.replace(location.pathname + '?v=' + Date.now());
+}
+
+function openLiveCheck(){
+  $('#profileSheet').innerHTML = `
+    <h3 style="text-align:center;font-size:18px">🔴 Werkt de live data?</h3>
+    <div class="small muted" style="text-align:center;line-height:1.5;margin-bottom:12px">
+      Je hoeft niets in te stellen — dit kijkt alleen even na of alles klopt op dit toestel.</div>
+    <div class="zelftest" id="zelftest" style="min-height:76px"></div>
+    <div class="bouwstempel" style="text-align:center">versie ${esc(BUILD)}</div>
+    <button class="pin-back" onclick="hardVerversen()">App vernieuwen</button>
+    <button class="pin-back" onclick="closeOverlays()">Sluiten</button>`;
+  $('#profileOverlay').classList.add('open');
+  liveZelftest();
 }
 
 /* ---- zelftest: werkt de live data op dit toestel? ---- */
