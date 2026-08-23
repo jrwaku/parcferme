@@ -1372,6 +1372,7 @@ async function boot(){
     document.querySelectorAll('.view').forEach(v => v.innerHTML =
       `<div class="card"><h2>Oeps</h2><p class="muted">Kan de F1-data nu niet laden. Check je internet en ververs de pagina.</p></div>`);
   }
+  if(new URLSearchParams(location.search).get('live') === '1') setTimeout(openSleutelScherm, 400);
   laadAnalyseSessies();          // op de achtergrond, blokkeert niets
   regelLive();                   // live-tabblad alleen tonen als er iets loopt
   setInterval(regelLive, 2*MIN);
@@ -1749,68 +1750,47 @@ async function of1L(pad){
   return r.json();
 }
 
-/* inlogscherm voor live data */
+/* inlogscherm voor live data — bewust zo kaal mogelijk */
 function openSleutelScherm(){
   const a = liveAuth();
   $('#profileSheet').innerHTML = `
-    <h3>&#128308; Live data aanzetten</h3>
-    <div class="small muted" style="line-height:1.5;margin-bottom:12px">
-      OpenF1 geeft een token dat elk uur verloopt, dus de app logt zelf in en ververst het.
-      Je gegevens blijven <b>alleen op dit toestel</b> en gaan nergens heen behalve naar OpenF1.
-      ${a ? '<br><b style="color:var(--green)">Nu ingelogd als ' + esc(a.user) + '</b>' : ''}
-    </div>
-    <input class="search" id="of1Proxy" type="url" autocomplete="off"
-      placeholder="adres van je tussenstukje (aanbevolen)" value="${esc(liveProxy())}">
-    <div class="small muted" style="margin:-4px 0 10px">Heb je het Cloudflare-tussenstukje opgezet? Plak dan alleen dit adres — de twee velden hieronder hoef je dan niet in te vullen.</div>
-    <input class="search" id="of1User" type="email" autocomplete="off" placeholder="of: je OpenF1 e-mailadres" value="${a ? esc(a.user) : ''}">
-    <input class="search" id="of1Pass" type="password" autocomplete="off" placeholder="of: je OpenF1 wachtwoord">
-    <div class="pin-err" id="sleutelUitslag" style="text-align:left;min-height:20px"></div>
-    <div style="display:flex;gap:8px">
-      <button class="tab-btn active" style="flex:1" onclick="sleutelOpslaan()">Inloggen en testen</button>
-      ${a ? '<button class="tab-btn" style="flex:0 0 auto" onclick="sleutelWissen()">Uitloggen</button>' : ''}
-    </div>
+    <h3 style="text-align:center;font-size:18px">&#128308; Live data aanzetten</h3>
+    ${a
+      ? `<div class="small" style="text-align:center;color:var(--green);margin-bottom:14px">&#10003; Staat aan voor ${esc(a.user)}</div>`
+      : `<div class="small muted" style="text-align:center;line-height:1.5;margin-bottom:14px">Vul je OpenF1-gegevens in.<br>Verder hoef je nergens iets te doen.</div>`}
+    <input class="search" id="of1User" type="email" autocomplete="username"
+      placeholder="E-mailadres" value="${a ? esc(a.user) : ''}" style="font-size:16px;padding:14px 12px">
+    <input class="search" id="of1Pass" type="password" autocomplete="current-password"
+      placeholder="Wachtwoord" style="font-size:16px;padding:14px 12px">
+    <div class="pin-err" id="sleutelUitslag" style="text-align:center;min-height:22px;font-size:13px"></div>
+    <button class="tab-btn active" style="width:100%;padding:15px;font-size:15px" onclick="sleutelOpslaan()">Aanzetten</button>
+    ${a ? '<button class="pin-back" onclick="sleutelWissen()">uitzetten</button>' : ''}
     <button class="pin-back" onclick="closeOverlays()">sluiten</button>`;
   $('#profileOverlay').classList.add('open');
+  setTimeout(() => { const v = $('#of1User'); if(v && !v.value) v.focus(); }, 150);
 }
 
 async function sleutelOpslaan(){
-  const proxy = ($('#of1Proxy').value || '').trim().replace(/\/+$/, '');
   const user = ($('#of1User').value || '').trim();
   const pass = $('#of1Pass').value || '';
   const uit = $('#sleutelUitslag');
-
-  if(proxy){                                   // route via het tussenstukje
-    lsSet('of1proxy', proxy);
-    uit.style.color = 'var(--dim)'; uit.textContent = 'Tussenstukje testen...';
-    try{
-      const s = await of1L('/sessions?year=' + S.season);
-      uit.style.color = 'var(--green)';
-      uit.textContent = 'Gelukt! Tussenstukje werkt (' + s.length + ' sessies opgehaald). Niemand hoeft nog in te loggen.';
-      setTimeout(() => { closeOverlays(); regelLive(); }, 2000);
-    }catch(e){
-      try{ localStorage.removeItem(LS+'of1proxy'); }catch(_){}
-      uit.style.color = 'var(--red2)'; uit.textContent = 'Tussenstukje antwoordt niet: ' + e.message;
-    }
-    return;
-  }
-
-  if(!user || !pass){ uit.style.color = 'var(--red2)'; uit.textContent = 'Vul het adres van je tussenstukje in, of allebei de onderste velden.'; return; }
-  uit.style.color = 'var(--dim)'; uit.textContent = 'Inloggen...';
+  if(!user || !pass){ uit.style.color = 'var(--red2)'; uit.textContent = 'Vul allebei de vakjes in.'; return; }
+  uit.style.color = 'var(--dim)'; uit.textContent = 'Even kijken...';
   lsSet('of1auth', { user, pass }); of1Token = null;
   try{
     await haalToken(true);
-    const min = Math.round((of1Token.verloopt - Date.now())/60000);
-    uit.style.color = 'var(--green)';
-    uit.textContent = 'Gelukt! Token geldig voor ' + min + ' minuten; de app ververst hem vanzelf.';
-    setTimeout(() => { closeOverlays(); regelLive(); }, 2000);
+    uit.style.color = 'var(--green)'; uit.textContent = 'Gelukt! Live data staat aan.';
+    setTimeout(() => { closeOverlays(); regelLive(); render(); }, 1600);
   }catch(e){
     try{ localStorage.removeItem(LS+'of1auth'); }catch(_){}
-    uit.style.color = 'var(--red2)'; uit.textContent = e.message;
+    uit.style.color = 'var(--red2)';
+    uit.textContent = (e.message || '').includes('klopt niet') ? 'E-mailadres of wachtwoord klopt niet.' : e.message;
   }
 }
 
 function sleutelWissen(){
-  try{ localStorage.removeItem(LS+'of1auth'); localStorage.removeItem(LS+'of1token'); localStorage.removeItem(LS+'of1proxy'); }catch(e){}
+  try{ localStorage.removeItem(LS+'of1auth'); localStorage.removeItem(LS+'of1token');
+       localStorage.removeItem(LS+'of1proxy'); }catch(e){}
   of1Token = null; openSleutelScherm();
 }
 const isoKort = d => new Date(d).toISOString().slice(0,19);
@@ -2141,6 +2121,7 @@ async function regelLive(){
   try{
     const knop = $('#nav-live'); if(!knop) return;
     const params = new URLSearchParams(location.search);
+    if(params.get('proxy')) lsSet('of1proxy', params.get('proxy'));
     const herhaling = params.get('replay');
     if(herhaling){                                   // testmodus: ?replay=<session_key>
       knop.style.display = '';
