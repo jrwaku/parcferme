@@ -466,7 +466,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-09-06-rij';
+const BUILD = '2026-09-06-rij2';
 </script>
 <script>
 /* ============================================================
@@ -510,11 +510,12 @@ const inflight = {};
 
 /* De officiële bron krijgt bij het opstarten dertig verzoeken tegelijk over zich
    heen. Een paar daarvan sneuvelen dan — elke keer andere. Daarom gaan ze netjes
-   achter elkaar de deur uit, met een herkansing als er toch eentje misgaat.
+   achter elkaar de deur uit — ruim onder de vier per seconde die de bron toestaat —
+   met een herkansing als er toch eentje misgaat.
    Dat was de echte oorzaak van "de punten kloppen de ene keer wel en de andere keer niet". */
 let jolpicaRij = Promise.resolve();
 function jolpicaQ(fn){
-  const p = jolpicaRij.then(async () => { await new Promise(r => setTimeout(r, 220)); return fn(); });
+  const p = jolpicaRij.then(async () => { await new Promise(r => setTimeout(r, 260)); return fn(); });
   jolpicaRij = p.then(()=>{}, ()=>{});
   return p;
 }
