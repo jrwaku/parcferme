@@ -466,7 +466,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-09-06-ververs';
+const BUILD = '2026-09-06-rij';
 </script>
 <script>
 /* ============================================================
@@ -508,6 +508,33 @@ function lsSet(k,v){ try{ localStorage.setItem(LS+k, JSON.stringify(v)); }catch(
 
 const inflight = {};
 
+/* De officiële bron krijgt bij het opstarten dertig verzoeken tegelijk over zich
+   heen. Een paar daarvan sneuvelen dan — elke keer andere. Daarom gaan ze netjes
+   achter elkaar de deur uit, met een herkansing als er toch eentje misgaat.
+   Dat was de echte oorzaak van "de punten kloppen de ene keer wel en de andere keer niet". */
+let jolpicaRij = Promise.resolve();
+function jolpicaQ(fn){
+  const p = jolpicaRij.then(async () => { await new Promise(r => setTimeout(r, 220)); return fn(); });
+  jolpicaRij = p.then(()=>{}, ()=>{});
+  return p;
+}
+
+async function haalMetHerkansing(url, pogingen = 3){
+  const inDeRij = url.indexOf('api.jolpi.ca') !== -1;
+  let laatste = null;
+  for(let i = 0; i < pogingen; i++){
+    try{
+      const r = inDeRij ? await jolpicaQ(() => fetch(url)) : await fetch(url);
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      return r;
+    }catch(e){
+      laatste = e;
+      if(i < pogingen - 1) await new Promise(s => setTimeout(s, 400 * Math.pow(2, i)));
+    }
+  }
+  throw laatste || new Error('ophalen mislukt');
+}
+
 /* Antwoorden bewaren we op het toestel zodat de app snel opent en weinig
    verzoeken doet. Eén valkuil: een uitslag die er nog NIET is komt terug als
    een leeg antwoord. Zo'n leeg antwoord mag nooit lang bewaard blijven, anders
@@ -528,8 +555,7 @@ async function cachedJSON(url, ttlMs, geldig, forceer){
   if(inflight[url]) return inflight[url];
   inflight[url] = (async () => {
     try{
-      const r = await fetch(url);
-      if(!r.ok) throw new Error('HTTP '+r.status);
+      const r = await haalMetHerkansing(url);
       const d = await r.json();
       const leeg = geldig ? !geldig(d) : false;
       lsSet(key, { t: Date.now(), d, leeg });
@@ -1718,11 +1744,11 @@ async function loadOfficialData(forceer){
     const mistQuali = !S.qualis[r.round];
     if(raceDone(r) || podiumLocked(r)){
       jobs.push(getResult(S.season, r.round, r.raceStart, forceer && mistResult)
-        .then(x => { if(x) S.results[r.round] = x; }).catch(()=>{}));
+        .then(x => { if(x){ S.results[r.round] = x; plandRender(); } }).catch(()=>{}));
     }
     if(r.qualiStart && Date.now() > r.qualiStart.getTime()){
       jobs.push(getQualiTop3(S.season, r.round, r.qualiStart, forceer && mistQuali)
-        .then(x => { if(x) S.qualis[r.round] = x; }).catch(()=>{}));
+        .then(x => { if(x){ S.qualis[r.round] = x; plandRender(); } }).catch(()=>{}));
     }
   }
   await Promise.allSettled(jobs);
@@ -1766,6 +1792,13 @@ async function refreshSoft(){
     await loadOfficialData();
     render();
   }catch(e){ /* stil */ }
+}
+
+/* tijdens het binnendruppelen hooguit één keer per seconde opnieuw tekenen */
+let renderTimer = null;
+function plandRender(){
+  if(renderTimer) return;
+  renderTimer = setTimeout(() => { renderTimer = null; try{ render(); }catch(e){} }, 700);
 }
 
 function render(){
