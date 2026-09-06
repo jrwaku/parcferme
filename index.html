@@ -333,6 +333,26 @@ nav button.active .nv-ic{color:var(--red2)}
 .cb-w{flex:1;color:var(--dim);display:flex;flex-wrap:wrap;gap:4px;align-items:baseline}
 .pit-chip{font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--txt)}
 .cb-voet{margin-top:9px;font-size:11px;color:var(--faint)}
+/* verversknop in de balk bovenin */
+.ververs-knop{background:none; border:1px solid var(--line); color:var(--dim); width:32px; height:32px;
+  border-radius:50%; font-size:17px; line-height:1; cursor:pointer; flex:0 0 auto; margin-right:8px;
+  display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;
+  transition:color .2s, border-color .2s}
+.ververs-knop:active{color:var(--txt); border-color:var(--dim)}
+.ververs-knop.bezig{animation:draai .9s linear infinite; color:var(--gold); border-color:var(--gold)}
+@keyframes draai{to{transform:rotate(360deg)}}
+
+/* naar beneden trekken om te verversen */
+#trekBalk{position:fixed; top:0; left:0; right:0; z-index:65; display:flex; justify-content:center;
+  pointer-events:none; transform:translateY(-46px); transition:transform .18s ease, opacity .18s}
+#trekBalk.stil{transition:none}
+#trekBalk b{display:flex; align-items:center; gap:7px; background:var(--bg2); border:1px solid var(--line);
+  border-radius:999px; padding:7px 15px; font-size:12px; font-weight:400; color:var(--dim);
+  box-shadow:0 4px 16px rgba(0,0,0,.45); margin-top:8px; white-space:nowrap}
+#trekBalk .pijl{display:inline-block; transition:transform .2s; font-size:14px}
+#trekBalk.los .pijl{transform:rotate(180deg); color:var(--gold)}
+#trekBalk.bezig .pijl{animation:draai .9s linear infinite; color:var(--gold)}
+
 /* nieuwe-versie-balk */
 .updatebalk{position:fixed; left:12px; right:12px; bottom:70px; z-index:60; display:flex; align-items:center;
   gap:10px; background:var(--bg2); border:1px solid var(--gold); border-radius:12px; padding:11px 14px;
@@ -374,6 +394,7 @@ a{color:var(--blue)}
   <div class="logo"><span class="flag">🏁</span>PARC&nbsp;<b>FERMÉ</b></div>
   <span class="season-badge" id="seasonBadge">—</span>
   <div class="spacer"></div>
+  <button class="ververs-knop" id="verversKnop" onclick="verversAlles()" aria-label="Ververs">⟳</button>
   <button class="me-chip" id="meChip" onclick="openProfilePicker(false)"><span class="em">👤</span><span id="meName">kies profiel</span></button>
 </header>
 
@@ -408,6 +429,7 @@ a{color:var(--blue)}
   </button>
 </nav>
 
+<div id="trekBalk"><b><span class="pijl">↓</span><span id="trekTekst">Trek omlaag om te verversen</span></b></div>
 <div class="overlay" id="pickerOverlay"><div class="sheet" id="pickerSheet"></div></div>
 <div class="overlay center-overlay" id="profileOverlay"><div class="sheet" id="profileSheet"></div></div>
 
@@ -444,7 +466,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-08-23-perfect35b';
+const BUILD = '2026-09-06-ververs';
 </script>
 <script>
 /* ============================================================
@@ -485,32 +507,63 @@ function lsGet(k){ try{ const v = localStorage.getItem(LS+k); return v ? JSON.pa
 function lsSet(k,v){ try{ localStorage.setItem(LS+k, JSON.stringify(v)); }catch(e){} }
 
 const inflight = {};
-async function cachedJSON(url, ttlMs){
-  const key = 'c:'+url;
+
+/* Antwoorden bewaren we op het toestel zodat de app snel opent en weinig
+   verzoeken doet. Eén valkuil: een uitslag die er nog NIET is komt terug als
+   een leeg antwoord. Zo'n leeg antwoord mag nooit lang bewaard blijven, anders
+   verschijnen de punten van die race nooit meer. Daarom geeft elke aanroep een
+   'geldig'-controle mee: is het antwoord leeg, dan bewaren we het hooguit een
+   paar minuten en vragen we het daarna gewoon opnieuw. */
+const LEEG_TTL = 90e3;   // een leeg antwoord hooguit anderhalve minuut vasthouden
+
+async function cachedJSON(url, ttlMs, geldig, forceer){
+  const key = 'c2:'+url;                 // c2: — oude, mogelijk vergiftigde opslag negeren
   const hit = lsGet(key);
   const now = Date.now();
-  if(hit && (ttlMs === Infinity || now - hit.t < ttlMs)) return hit.d;
+  if(hit && !forceer){
+    const bruikbaar = hit.leeg ? (now - hit.t < LEEG_TTL)
+                               : (ttlMs === Infinity || now - hit.t < ttlMs);
+    if(bruikbaar) return hit.d;
+  }
   if(inflight[url]) return inflight[url];
   inflight[url] = (async () => {
     try{
       const r = await fetch(url);
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d = await r.json();
-      lsSet(key, {t: now, d});
+      const leeg = geldig ? !geldig(d) : false;
+      lsSet(key, { t: Date.now(), d, leeg });
       return d;
     }catch(e){
-      if(hit) return hit.d;           // liever oude data dan niks
+      if(hit && !hit.leeg) return hit.d;   // liever oude échte data dan niks
       throw e;
     }finally{ delete inflight[url]; }
   })();
   return inflight[url];
 }
 
+/* eenmalig opruimen: de oude cache en de bewaarde circuitvormen (die functie
+   bestaat niet meer) mogen weg — dat scheelt ook flink wat ruimte */
+function ruimOudeOpslagOp(){
+  try{
+    const weg = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(!k || !k.startsWith(LS)) continue;
+      const kort = k.slice(LS.length);
+      if(kort.startsWith('c:') || kort.startsWith('baan:') || kort.startsWith('an:')) weg.push(k);
+    }
+    weg.forEach(k => localStorage.removeItem(k));
+    return weg.length;
+  }catch(e){ return 0; }
+}
+
 /* ---------- Jolpica helpers ---------- */
 const MIN = 60e3, HOUR = 3600e3;
 
 async function getCalendar(){
-  const d = await cachedJSON(`${J_BASE}/current/races.json?limit=30`, 6*HOUR);
+  const d = await cachedJSON(`${J_BASE}/current/races.json?limit=30`, 6*HOUR,
+    x => !!(x && x.MRData && x.MRData.RaceTable && (x.MRData.RaceTable.Races||[]).length));
   const rt = d.MRData.RaceTable;
   const season = parseInt(rt.season, 10);
   const races = (rt.Races||[]).map(r => {
@@ -536,8 +589,10 @@ async function getCalendar(){
 
 async function getDrivers(season){
   const [dRes, sRes] = await Promise.allSettled([
-    cachedJSON(`${J_BASE}/${season}/drivers.json?limit=60`, 6*HOUR),
-    cachedJSON(`${J_BASE}/${season}/driverstandings.json?limit=60`, 10*MIN),
+    cachedJSON(`${J_BASE}/${season}/drivers.json?limit=60`, 6*HOUR,
+      x => !!(x && x.MRData && x.MRData.DriverTable && (x.MRData.DriverTable.Drivers||[]).length)),
+    cachedJSON(`${J_BASE}/${season}/driverstandings.json?limit=60`, 10*MIN,
+      x => !!(x && x.MRData && x.MRData.StandingsTable && (x.MRData.StandingsTable.StandingsLists||[]).length)),
   ]);
   const map = {};
   if(dRes.status === 'fulfilled'){
@@ -566,10 +621,12 @@ async function getDrivers(season){
   return arr;
 }
 
-async function getResult(season, round, raceStart){
-  // uitslag is definitief → na 3 dagen oneindig cachen
-  const old = raceStart && (Date.now() - raceStart.getTime() > 3*24*HOUR);
-  const d = await cachedJSON(`${J_BASE}/${season}/${round}/results.json?limit=40`, old ? Infinity : 5*MIN);
+async function getResult(season, round, raceStart, forceer){
+  // een uitslag verandert na de vlag nauwelijks nog → daarna lang bewaren
+  const old = raceStart && (Date.now() - raceStart.getTime() > 12*HOUR);
+  const d = await cachedJSON(`${J_BASE}/${season}/${round}/results.json?limit=40`, old ? Infinity : 5*MIN,
+    x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
+            x.MRData.RaceTable.Races[0] && (x.MRData.RaceTable.Races[0].Results||[]).length), forceer);
   const res = d.MRData.RaceTable?.Races?.[0]?.Results;
   if(!res || !res.length) return null;
   const rows = res.map(r => ({
@@ -582,9 +639,11 @@ async function getResult(season, round, raceStart){
   return { rows, fl: flRow ? flRow.Driver.driverId : null };
 }
 
-async function getQualiTop3(season, round, qualiStart){
-  const old = qualiStart && (Date.now() - qualiStart.getTime() > 3*24*HOUR);
-  const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=5`, old ? Infinity : 5*MIN);
+async function getQualiTop3(season, round, qualiStart, forceer){
+  const old = qualiStart && (Date.now() - qualiStart.getTime() > 12*HOUR);
+  const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=5`, old ? Infinity : 5*MIN,
+    x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
+            x.MRData.RaceTable.Races[0] && (x.MRData.RaceTable.Races[0].QualifyingResults||[]).length), forceer);
   const q = d.MRData.RaceTable?.Races?.[0]?.QualifyingResults;
   if(!q || !q.length) return null;
   return q.slice(0,3).map(r => ({
@@ -594,7 +653,8 @@ async function getQualiTop3(season, round, qualiStart){
 }
 
 async function getConstructorStandings(season){
-  const d = await cachedJSON(`${J_BASE}/${season}/constructorstandings.json?limit=20`, 10*MIN);
+  const d = await cachedJSON(`${J_BASE}/${season}/constructorstandings.json?limit=20`, 10*MIN,
+    x => !!(x && x.MRData && x.MRData.StandingsTable && (x.MRData.StandingsTable.StandingsLists||[]).length));
   return (d.MRData.StandingsTable?.StandingsLists?.[0]?.ConstructorStandings || []).map(s => ({
     pos: parseInt(s.position,10), name: s.Constructor.name, id: s.Constructor.constructorId,
     points: parseFloat(s.points)||0, wins: parseInt(s.wins,10)||0,
@@ -866,6 +926,7 @@ const S = {
   scored: null,                    // uitgerekend klassement
   standTab: lsGet('standTab') || 'cup',
   anSessies: [], anKey: null, anNaam: '', anData: null, anFout: null,
+  wachtend: [],                    // rondes waarvan de uitslag nog niet binnen is
 };
 const driverById = id => S.drivers.find(d => d.id === id) || null;
 const playerById = id => CONFIG.players.find(p => p.id === id) || null;
@@ -985,6 +1046,8 @@ function renderRace(){
         const fld = driverById(res.fl);
         if(fld) html += `<div class="small muted" style="margin-top:8px">⚡ Snelste ronde: <b style="color:var(--txt)">${esc(fld.name)}</b></div>`;
       }
+      if(res.voorlopig) html += `<div class="small" style="margin-top:6px;color:var(--blue,#4aa3ff)">
+        📡 Voorlopige uitslag uit de live-data — de officiële uitslag met eventuele straffen volgt.</div>`;
       // punten van het clubje
       const chips = CONFIG.players.map(p => {
         const pr = predOf(lr.round, p.id);
@@ -1306,6 +1369,50 @@ function computeCup(){
   return rows;
 }
 
+/* Punten geteld op basis van de live-uitslag, in afwachting van de officiële */
+function voorlopigeRondes(){
+  return S.races.filter(r => S.results[r.round] && S.results[r.round].voorlopig &&
+                             S.preds.some(p => p.round === r.round));
+}
+
+function voorlopigBanner(){
+  const v = voorlopigeRondes();
+  if(!v.length) return '';
+  return `<div class="card" style="border-color:rgba(74,163,255,.35)">
+    <div style="display:flex;gap:10px">
+      <span style="font-size:20px">📡</span>
+      <div style="flex:1"><b>Punten al geteld via de live-uitslag</b>
+        <div class="small muted" style="line-height:1.6;margin-top:3px">
+          ${v.map(r => `${flagOf(r.country)} <b>${esc(r.name)}</b>`).join('<br>')}<br>
+          Dit is de klassering zoals hij bij de vlag stond. De officiële uitslag —
+          mét eventuele straffen — komt later binnen; wijzigt daar iets, dan past de app
+          de punten vanzelf aan.</div></div>
+    </div></div>`;
+}
+
+/* Eerlijk zijn als er nog punten onderweg zijn — beter dan stilletjes 0 tonen */
+function wachtBanner(){
+  const w = S.wachtend || [];
+  if(!w.length) return '';
+  const regels = w.map(x => `${flagOf(x.race.country)} <b>${esc(x.race.name)}</b> — ${x.wat}uitslag`);
+  return `<div class="card" style="border-color:rgba(245,197,24,.35)">
+    <div style="display:flex;gap:10px">
+      <span style="font-size:20px">⏳</span>
+      <div style="flex:1"><b>Nog niet alle punten binnen</b>
+        <div class="small muted" style="line-height:1.6;margin-top:3px">
+          ${regels.join('<br>')}<br>
+          De officiële uitslag is nog niet gepubliceerd. De app blijft zelf kijken en
+          telt de punten er vanzelf bij zodra hij binnen is — je hoeft niets te doen.</div></div>
+      <button class="tab-btn" style="flex:0 0 auto;padding:8px 12px;align-self:start"
+        onclick="nuOphalen(this)">Nu kijken</button>
+    </div></div>`;
+}
+
+async function nuOphalen(knop){
+  if(knop){ knop.disabled = true; knop.textContent = 'Even kijken…'; }
+  await verversAlles(true);
+}
+
 function setStandTab(t){ S.standTab = t; lsSet('standTab', t); renderStandings(); }
 
 function renderStandings(){
@@ -1332,6 +1439,8 @@ function renderStandings(){
         <span class="chev">›</span>
       </button>`).join('');
     html += `<div class="small muted" style="margin-top:8px">Tik op een naam voor het volledige seizoensrapport.</div></div>`;
+    html += voorlopigBanner();
+    html += wachtBanner();
 
     // race-matrix
     const done = S.races.filter(r => S.results[r.round] || S.qualis[r.round]);
@@ -1439,7 +1548,13 @@ function openPuntenUitleg(playerId, round){
         <span class="pb-ptn" style="color:var(--gold)">+${d.race.jokerExtra}</span></div>`;
     }
     if(!d.quali && !d.race) html += `<div class="loading">De uitslag van deze race is er nog niet.</div>`;
-    else html += `<div class="pb-tot"><span>Totaal deze race</span><b>${d.total} ptn</b></div>`;
+    else {
+      html += `<div class="pb-tot"><span>Totaal deze race</span><b>${d.total} ptn</b></div>`;
+      const res = S.results[round];
+      if(res && res.voorlopig) html += `<div class="small muted" style="margin-top:8px;line-height:1.5">
+        📡 Geteld met de uitslag zoals hij bij de vlag stond. Komt de officiële uitslag met een
+        straf erin, dan rekent de app het vanzelf opnieuw.</div>`;
+    }
   }
   html += `<button class="pin-back" onclick="closeOverlays()">Sluiten</button>`;
   sheet.innerHTML = html;
@@ -1595,17 +1710,52 @@ function syncMeChip(){
 /* ============================================================
    Data laden & boot
    ============================================================ */
-async function loadOfficialData(){
+async function loadOfficialData(forceer){
   const jobs = [];
   for(const r of S.races){
+    // alleen de rondes die we nog missen forceren — de rest komt gewoon uit de opslag
+    const mistResult = !S.results[r.round] || S.results[r.round].voorlopig;
+    const mistQuali = !S.qualis[r.round];
     if(raceDone(r) || podiumLocked(r)){
-      jobs.push(getResult(S.season, r.round, r.raceStart).then(x => { if(x) S.results[r.round] = x; }).catch(()=>{}));
+      jobs.push(getResult(S.season, r.round, r.raceStart, forceer && mistResult)
+        .then(x => { if(x) S.results[r.round] = x; }).catch(()=>{}));
     }
     if(r.qualiStart && Date.now() > r.qualiStart.getTime()){
-      jobs.push(getQualiTop3(S.season, r.round, r.qualiStart).then(x => { if(x) S.qualis[r.round] = x; }).catch(()=>{}));
+      jobs.push(getQualiTop3(S.season, r.round, r.qualiStart, forceer && mistQuali)
+        .then(x => { if(x) S.qualis[r.round] = x; }).catch(()=>{}));
     }
   }
   await Promise.allSettled(jobs);
+
+  // officiële uitslag nog niet binnen? pak 'm dan uit de live-data
+  const gaten = S.races.filter(r => raceDone(r) && !S.results[r.round] &&
+                                    S.preds.some(p => p.round === r.round));
+  for(const r of gaten){
+    try{
+      const via = await resultaatViaOpenF1(r);
+      if(via) S.results[r.round] = via;
+    }catch(e){ /* stil — dan blijft het gat gewoon staan */ }
+  }
+
+  S.wachtend = wachtOpUitslag();
+  return S.wachtend;
+}
+
+/* Waar hebben we wél een voorspelling maar nog géén officiële uitslag?
+   Zo blijft het nooit stilletjes op nul staan. */
+function wachtOpUitslag(){
+  const uit = [];
+  for(const r of S.races){
+    const preds = S.preds.filter(p => p.round === r.round);
+    if(!preds.length) continue;
+    const kwaliGeweest = r.qualiStart && Date.now() > r.qualiStart.getTime() + 90*MIN;
+    const raceGeweest  = raceDone(r);
+    if(kwaliGeweest && !S.qualis[r.round] && preds.some(p => p.q1))
+      uit.push({ round:r.round, race:r, wat:'kwalificatie' });
+    if(raceGeweest && !S.results[r.round] && preds.some(p => p.p1))
+      uit.push({ round:r.round, race:r, wat:'race' });
+  }
+  return uit;
 }
 
 async function refreshSoft(){
@@ -1631,6 +1781,7 @@ function render(){
 }
 
 async function boot(){
+  ruimOudeOpslagOp();                                              // oude/vergiftigde opslag weg
   if(S.me && !playerById(S.me)){ S.me = null; lsSet('me', null); }  // oud/onbekend profiel-id
   if(!SB.on){
     $('#storageBanner').innerHTML = `<div class="banner">🔧 <span><b>Demo-modus:</b> voorspellingen worden alleen op dit toestel bewaard.
@@ -1660,6 +1811,16 @@ async function boot(){
   setInterval(regelLive, 2*MIN);
   checkUpdate(true);             // draaien we de nieuwste versie?
   setInterval(() => checkUpdate(false), 15*MIN);
+  zetTrekOmlaagAan();            // naar beneden trekken = verversen
+
+  // Uitslagen komen soms pas uren na de vlag binnen. Blijf rustig kijken tot
+  // alles binnen is, en werk het scherm dan meteen bij — zonder herladen.
+  setInterval(async () => {
+    if(!S.wachtend || !S.wachtend.length) return;
+    const voor = S.wachtend.length;
+    await loadOfficialData(true);
+    if(S.wachtend.length !== voor) render();
+  }, 5*MIN);
 
   // onverstuurde invoer opnieuw proberen zodra dat kan
   window.addEventListener('online', () => retryOutbox());
@@ -1703,7 +1864,7 @@ const rustig = () => new Promise(r => setTimeout(r, 350));   // binnen 3 verzoek
 async function of1Sessions(season){
   const proxy = (typeof liveProxy === 'function') ? liveProxy() : '';
   const basis = proxy ? proxy + '/v1' : OF1;
-  const d = await cachedJSON(`${basis}/sessions?year=${season}`, 6*HOUR);
+  const d = await cachedJSON(`${basis}/sessions?year=${season}`, 6*HOUR, x => Array.isArray(x) && x.length > 0);
   return Array.isArray(d) ? d : [];
 }
 
@@ -2092,6 +2253,72 @@ function of1Q(pad){
   return p;
 }
 
+/* ============================================================
+   Uitslag uit de live-data halen als de officiële bron achterloopt
+   ------------------------------------------------------------
+   Jolpica (de officiële uitslag, mét straffen) verschijnt soms pas uren
+   na de vlag. OpenF1 heeft de uitslag meteen. Zolang de officiële er nog
+   niet is rekenen we met die van OpenF1, duidelijk gemarkeerd als
+   voorlopig. Zodra de officiële binnen is neemt die het over.
+   ============================================================ */
+function of1NaarCoureurId(num, code){
+  const d = S.drivers.find(x => String(x.num) === String(num))
+         || (code && S.drivers.find(x => (x.code||'').toUpperCase() === String(code).toUpperCase()));
+  return d ? d.id : null;
+}
+
+async function resultaatViaOpenF1(race){
+  const alle = await of1Sessions(S.season).catch(() => []);
+  if(!alle.length) return null;
+  const sessies = sessionsVoorRonde(alle, race).filter(x => x.session_name === 'Race');
+  const sessie = sessies[sessies.length - 1];
+  if(!sessie) return null;
+  // pas als de sessie echt voorbij is
+  if(sessie.date_end && Date.now() < new Date(sessie.date_end).getTime()) return null;
+
+  const K = sessie.session_key;
+  const [uitslag, coureurs] = await Promise.all([
+    of1(`/session_result?session_key=${K}`).catch(() => []),
+    of1(`/drivers?session_key=${K}`).catch(() => []),
+  ]);
+  if(!uitslag.length) return null;
+  const codeVan = n => (coureurs.find(d => d.driver_number === n) || {}).name_acronym || '';
+  const naamVanNum = n => { const d = coureurs.find(x => x.driver_number === n) || {};
+    return d.full_name || d.broadcast_name || ('#' + n); };
+  const teamVan = n => (coureurs.find(d => d.driver_number === n) || {}).team_name || '';
+
+  const rows = uitslag
+    .filter(r => r.position != null && !r.dns && !r.dsq)
+    .sort((a,b) => a.position - b.position)
+    .map(r => ({
+      pos: r.position,
+      driverId: of1NaarCoureurId(r.driver_number, codeVan(r.driver_number)),
+      code: codeVan(r.driver_number),
+      name: naamVanNum(r.driver_number),
+      team: teamVan(r.driver_number),
+      teamId: '',
+      status: r.dnf ? 'DNF' : 'Finished',
+      time: r.position === 1 ? (r.duration != null ? secToTijd(r.duration) : '')
+          : (r.gap_to_leader != null && !isNaN(+r.gap_to_leader) ? '+' + (+r.gap_to_leader).toFixed(3) : ''),
+    }))
+    .filter(r => r.driverId);
+  if(rows.length < 3) return null;
+
+  // snelste raceronde erbij
+  let fl = null;
+  try{
+    const laps = await of1(`/laps?session_key=${K}`);
+    let beste = null;
+    for(const l of laps){
+      if(l.lap_duration == null || l.is_pit_out_lap) continue;
+      if(!beste || l.lap_duration < beste.lap_duration) beste = l;
+    }
+    if(beste) fl = of1NaarCoureurId(beste.driver_number, codeVan(beste.driver_number));
+  }catch(e){ /* zonder snelste ronde kunnen we ook prima verder */ }
+
+  return { rows, fl, bron:'openf1', voorlopig:true, sessionKey:K };
+}
+
 /* ---- welke sessie loopt er nu? ---- */
 async function liveSessieNu(){
   const alle = await of1Sessions(S.season);
@@ -2428,6 +2655,97 @@ function bandNaam(b){
 }
 
 /* ============================================================
+   Verversen: één knop, of gewoon naar beneden trekken
+   ------------------------------------------------------------
+   Niemand hoeft de app ooit te verwijderen en opnieuw te installeren.
+   Deze knop haalt verse voorspellingen en uitslagen op én pakt meteen
+   een nieuwere versie van de app als die klaarstaat.
+   ============================================================ */
+let verversBezig = false;
+
+async function verversAlles(stil){
+  if(verversBezig) return;
+  verversBezig = true;
+  const knop = $('#verversKnop');
+  if(knop) knop.classList.add('bezig');
+  try{
+    // 1. staat er een nieuwere versie klaar? dan die pakken (en dus herladen)
+    let nieuwer = null;
+    try{ nieuwer = await nieuwsteVersie(); }catch(e){}
+    if(nieuwer && nieuwer !== BUILD){
+      trekTekst('Nieuwe versie ophalen…');
+      hardVerversen();
+      return;
+    }
+    // 2. anders: alles opnieuw ophalen
+    trekTekst('Ophalen…');
+    await flushOutbox().catch(()=>{});
+    const preds = await loadPreds(S.season).catch(() => null);
+    if(preds) S.preds = preds;
+    S.drivers = await getDrivers(S.season).catch(() => S.drivers);
+    await loadOfficialData(true).catch(()=>{});
+    render();
+    trekTekst('Bijgewerkt ✓');
+    S.laatstVervers = Date.now();
+  }finally{
+    verversBezig = false;
+    if(knop) knop.classList.remove('bezig');
+    setTimeout(() => { trekVerberg(); trekTekst('Trek omlaag om te verversen'); }, stil ? 0 : 900);
+  }
+}
+
+function trekTekst(t){ const el = $('#trekTekst'); if(el) el.textContent = t; }
+function trekVerberg(){
+  const b = $('#trekBalk'); if(!b) return;
+  b.classList.remove('stil','los','bezig');
+  b.style.transform = '';
+}
+
+/* naar beneden trekken bovenaan de pagina — zoals in elke app */
+function zetTrekOmlaagAan(){
+  const balk = $('#trekBalk'); if(!balk) return;
+  const DREMPEL = 68, MAX = 110;
+  let startY = null, afstand = 0, actief = false;
+
+  const bovenaan = () => (window.scrollY || document.documentElement.scrollTop || 0) <= 0;
+
+  document.addEventListener('touchstart', e => {
+    if(verversBezig || e.touches.length !== 1 || !bovenaan()) { startY = null; return; }
+    if(document.querySelector('.overlay.open')) { startY = null; return; }
+    startY = e.touches[0].clientY; afstand = 0; actief = false;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if(startY === null || verversBezig) return;
+    const dy = e.touches[0].clientY - startY;
+    if(dy <= 0 || !bovenaan()){ if(actief){ actief = false; trekVerberg(); } return; }
+    actief = true;
+    if(e.cancelable) e.preventDefault();          // de pagina zelf niet laten meebewegen
+    afstand = Math.min(MAX, dy * 0.55);
+    balk.classList.add('stil');
+    balk.classList.toggle('los', afstand >= DREMPEL);
+    trekTekst(afstand >= DREMPEL ? 'Loslaten om te verversen' : 'Trek omlaag om te verversen');
+    balk.style.transform = `translateY(${afstand - 46}px)`;
+  }, { passive: false });
+
+  const loslaten = () => {
+    if(startY === null) return;
+    const genoeg = actief && afstand >= DREMPEL;
+    startY = null; actief = false;
+    balk.classList.remove('stil');
+    if(genoeg){
+      balk.classList.add('bezig');
+      balk.style.transform = 'translateY(6px)';
+      verversAlles();
+    } else {
+      trekVerberg();
+    }
+  };
+  document.addEventListener('touchend', loslaten, { passive: true });
+  document.addEventListener('touchcancel', loslaten, { passive: true });
+}
+
+/* ============================================================
    Draait iedereen wel de nieuwste versie?
    Telefoons (vooral iPhones met de app op het beginscherm) houden een
    pagina soms uren vast. Dan loopt iemand ongemerkt achter en werkt
@@ -2464,7 +2782,7 @@ function toonUpdateBalk(){
   const d = document.createElement('div');
   d.className = 'updatebalk';
   d.innerHTML = `<span>✨ Er staat een nieuwere versie klaar</span>
-    <button onclick="hardVerversen()">Vernieuwen</button>`;
+    <button onclick="hardVerversen()">Nu ophalen</button>`;
   document.body.appendChild(d);
 }
 
