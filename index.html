@@ -466,7 +466,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-09-06-rij2';
+const BUILD = '2026-10-25-kwalifix';
 </script>
 <script>
 /* ============================================================
@@ -648,12 +648,20 @@ async function getDrivers(season){
   return arr;
 }
 
+/* Heeft een antwoord echt plek 1, 2 én 3? Een half gevuld of rommelig
+   antwoord telt niet als uitslag — anders kan iemand op plek 4 als
+   "derde" worden gezien. */
+function heeftTop3(rijen){
+  const posities = new Set((rijen || []).map(r => parseInt(r.position, 10)));
+  return posities.has(1) && posities.has(2) && posities.has(3);
+}
+
 async function getResult(season, round, raceStart, forceer){
-  // een uitslag verandert na de vlag nauwelijks nog → daarna lang bewaren
-  const old = raceStart && (Date.now() - raceStart.getTime() > 12*HOUR);
+  // straffen achteraf komen soms pas na een dag → pas na 3 dagen vastzetten
+  const old = raceStart && (Date.now() - raceStart.getTime() > 3*24*HOUR);
   const d = await cachedJSON(`${J_BASE}/${season}/${round}/results.json?limit=40`, old ? Infinity : 5*MIN,
     x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
-            x.MRData.RaceTable.Races[0] && (x.MRData.RaceTable.Races[0].Results||[]).length), forceer);
+            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].Results)), forceer);
   const res = d.MRData.RaceTable?.Races?.[0]?.Results;
   if(!res || !res.length) return null;
   const rows = res.map(r => ({
@@ -667,16 +675,20 @@ async function getResult(season, round, raceStart, forceer){
 }
 
 async function getQualiTop3(season, round, qualiStart, forceer){
-  const old = qualiStart && (Date.now() - qualiStart.getTime() > 12*HOUR);
-  const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=5`, old ? Infinity : 5*MIN,
+  // LET OP: met ?limit=5 geeft de bron NIET de eerste vijf plekken, maar een
+  // willekeurig rijtje (bij Austin: 1, 2, 4, 6, 8). Dan werd plek 4 als "derde"
+  // gezien. Daarom altijd de hele lijst ophalen en zelf op positie sorteren.
+  const old = qualiStart && (Date.now() - qualiStart.getTime() > 24*HOUR);
+  const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=30`, old ? Infinity : 5*MIN,
     x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
-            x.MRData.RaceTable.Races[0] && (x.MRData.RaceTable.Races[0].QualifyingResults||[]).length), forceer);
+            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].QualifyingResults)), forceer);
   const q = d.MRData.RaceTable?.Races?.[0]?.QualifyingResults;
-  if(!q || !q.length) return null;
-  return q.slice(0,3).map(r => ({
-    pos: parseInt(r.position,10), driverId: r.Driver.driverId,
-    code: r.Driver.code || '', name: `${r.Driver.givenName} ${r.Driver.familyName}`,
-  }));
+  if(!heeftTop3(q)) return null;
+  return q
+    .map(r => ({ pos: parseInt(r.position,10), driverId: r.Driver.driverId,
+                 code: r.Driver.code || '', name: `${r.Driver.givenName} ${r.Driver.familyName}` }))
+    .filter(r => r.pos >= 1 && r.pos <= 3)
+    .sort((a,b) => a.pos - b.pos);
 }
 
 async function getConstructorStandings(season){
@@ -1398,7 +1410,8 @@ function computeCup(){
 
 /* Punten geteld op basis van de live-uitslag, in afwachting van de officiële */
 function voorlopigeRondes(){
-  return S.races.filter(r => S.results[r.round] && S.results[r.round].voorlopig &&
+  return S.races.filter(r => ((S.results[r.round] && S.results[r.round].voorlopig) ||
+                              (S.qualis[r.round] && S.qualis[r.round].voorlopig)) &&
                              S.preds.some(p => p.round === r.round));
 }
 
@@ -1410,7 +1423,11 @@ function voorlopigBanner(){
       <span style="font-size:20px">📡</span>
       <div style="flex:1"><b>Punten al geteld via de live-uitslag</b>
         <div class="small muted" style="line-height:1.6;margin-top:3px">
-          ${v.map(r => `${flagOf(r.country)} <b>${esc(r.name)}</b>`).join('<br>')}<br>
+          ${v.map(r => {
+            const wat = [S.qualis[r.round] && S.qualis[r.round].voorlopig ? 'kwalificatie' : '',
+                         S.results[r.round] && S.results[r.round].voorlopig ? 'race' : ''].filter(Boolean).join(' + ');
+            return `${flagOf(r.country)} <b>${esc(r.name)}</b> — ${wat}`;
+          }).join('<br>')}<br>
           Dit is de klassering zoals hij bij de vlag stond. De officiële uitslag —
           mét eventuele straffen — komt later binnen; wijzigt daar iets, dan past de app
           de punten vanzelf aan.</div></div>
@@ -1742,7 +1759,7 @@ async function loadOfficialData(forceer){
   for(const r of S.races){
     // alleen de rondes die we nog missen forceren — de rest komt gewoon uit de opslag
     const mistResult = !S.results[r.round] || S.results[r.round].voorlopig;
-    const mistQuali = !S.qualis[r.round];
+    const mistQuali = !S.qualis[r.round] || S.qualis[r.round].voorlopig;
     if(raceDone(r) || podiumLocked(r)){
       jobs.push(getResult(S.season, r.round, r.raceStart, forceer && mistResult)
         .then(x => { if(x){ S.results[r.round] = x; plandRender(); } }).catch(()=>{}));
@@ -1754,7 +1771,17 @@ async function loadOfficialData(forceer){
   }
   await Promise.allSettled(jobs);
 
-  // officiële uitslag nog niet binnen? pak 'm dan uit de live-data
+  // officiële kwali-uitslag nog niet binnen? pak 'm dan uit de live-data
+  const kwaliGaten = S.races.filter(r => r.qualiStart && Date.now() > r.qualiStart.getTime() + 60*MIN &&
+                                         !S.qualis[r.round] && S.preds.some(p => p.round === r.round && p.q1));
+  for(const r of kwaliGaten){
+    try{
+      const via = await kwaliViaOpenF1(r);
+      if(via){ S.qualis[r.round] = via; plandRender(); }
+    }catch(e){ /* stil — dan blijft het gat gewoon staan */ }
+  }
+
+  // officiële race-uitslag nog niet binnen? pak 'm dan uit de live-data
   const gaten = S.races.filter(r => raceDone(r) && !S.results[r.round] &&
                                     S.preds.some(p => p.round === r.round));
   for(const r of gaten){
@@ -1850,10 +1877,10 @@ async function boot(){
   // Uitslagen komen soms pas uren na de vlag binnen. Blijf rustig kijken tot
   // alles binnen is, en werk het scherm dan meteen bij — zonder herladen.
   setInterval(async () => {
-    if(!S.wachtend || !S.wachtend.length) return;
-    const voor = S.wachtend.length;
+    // blijven kijken zolang er iets ontbreekt óf nog voorlopig is
+    if((!S.wachtend || !S.wachtend.length) && !voorlopigeRondes().length) return;
     await loadOfficialData(true);
-    if(S.wachtend.length !== voor) render();
+    render();
   }, 5*MIN);
 
   // onverstuurde invoer opnieuw proberen zodra dat kan
@@ -2299,6 +2326,35 @@ function of1NaarCoureurId(num, code){
   const d = S.drivers.find(x => String(x.num) === String(num))
          || (code && S.drivers.find(x => (x.code||'').toUpperCase() === String(code).toUpperCase()));
   return d ? d.id : null;
+}
+
+/* Hetzelfde voor de kwalificatie: de officiële bron doet er soms een dag over,
+   de live-data heeft de uitslag binnen een paar minuten na de laatste ronde. */
+async function kwaliViaOpenF1(race){
+  const alle = await of1Sessions(S.season).catch(() => []);
+  if(!alle.length) return null;
+  const sessie = sessionsVoorRonde(alle, race).filter(x => x.session_name === 'Qualifying').pop();
+  if(!sessie) return null;
+  if(sessie.date_end && Date.now() < new Date(sessie.date_end).getTime()) return null;   // nog bezig
+
+  const K = sessie.session_key;
+  const [uitslag, coureurs] = await Promise.all([
+    of1(`/session_result?session_key=${K}`).catch(() => []),
+    of1(`/drivers?session_key=${K}`).catch(() => []),
+  ]);
+  if(!Array.isArray(uitslag) || !uitslag.length) return null;
+  const info = n => coureurs.find(d => d.driver_number === n) || {};
+  const top = uitslag
+    .filter(r => r.position >= 1 && r.position <= 3)
+    .sort((a,b) => a.position - b.position)
+    .map(r => ({ pos: r.position,
+                 driverId: of1NaarCoureurId(r.driver_number, info(r.driver_number).name_acronym),
+                 code: info(r.driver_number).name_acronym || '',
+                 name: info(r.driver_number).full_name || ('#' + r.driver_number) }));
+  if(top.length !== 3 || top.some(r => !r.driverId) || !heeftTop3(top.map(r => ({position:r.pos}))))
+    return null;
+  top.voorlopig = true; top.bron = 'openf1';
+  return top;
 }
 
 async function resultaatViaOpenF1(race){
@@ -2904,6 +2960,7 @@ async function regelLive(){
     }
   }catch(e){ console.warn('live-check', e); }
 }
+
 
 </script>
 </body>
