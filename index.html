@@ -466,7 +466,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-10-25-kwalifix';
+const BUILD = '2026-11-01-gelijkestand';
 </script>
 <script>
 /* ============================================================
@@ -544,13 +544,19 @@ async function haalMetHerkansing(url, pogingen = 3){
    paar minuten en vragen we het daarna gewoon opnieuw. */
 const LEEG_TTL = 90e3;   // een leeg antwoord hooguit anderhalve minuut vasthouden
 
-async function cachedJSON(url, ttlMs, geldig, forceer){
-  const key = 'c2:'+url;                 // c2: — oude, mogelijk vergiftigde opslag negeren
+/* 'vanaf': een uitslag mag pas voorgoed bewaard blijven als hij NA het moment
+   is opgehaald dat hij definitief was. Een kopie die vlak na de race is
+   opgehaald (toen bijvoorbeeld de snelste ronde er nog niet in stond) werd
+   anders óók voor altijd bewaard — en dan zag het ene toestel andere punten
+   dan het andere. */
+async function cachedJSON(url, ttlMs, geldig, forceer, vanaf){
+  const key = 'c3:'+url;                 // c3: — alle oude, mogelijk bevroren kopieën negeren
   const hit = lsGet(key);
   const now = Date.now();
   if(hit && !forceer){
     const bruikbaar = hit.leeg ? (now - hit.t < LEEG_TTL)
-                               : (ttlMs === Infinity || now - hit.t < ttlMs);
+                    : ttlMs === Infinity ? (hit.t >= (vanaf || 0))
+                    : (now - hit.t < ttlMs);
     if(bruikbaar) return hit.d;
   }
   if(inflight[url]) return inflight[url];
@@ -578,7 +584,7 @@ function ruimOudeOpslagOp(){
       const k = localStorage.key(i);
       if(!k || !k.startsWith(LS)) continue;
       const kort = k.slice(LS.length);
-      if(kort.startsWith('c:') || kort.startsWith('baan:') || kort.startsWith('an:')) weg.push(k);
+      if(kort.startsWith('c:') || kort.startsWith('c2:') || kort.startsWith('baan:') || kort.startsWith('an:')) weg.push(k);
     }
     weg.forEach(k => localStorage.removeItem(k));
     return weg.length;
@@ -651,17 +657,24 @@ async function getDrivers(season){
 /* Heeft een antwoord echt plek 1, 2 én 3? Een half gevuld of rommelig
    antwoord telt niet als uitslag — anders kan iemand op plek 4 als
    "derde" worden gezien. */
+function heeftSnelsteRonde(rijen){
+  return (rijen || []).some(r => r.FastestLap && String(r.FastestLap.rank) === '1');
+}
+
 function heeftTop3(rijen){
   const posities = new Set((rijen || []).map(r => parseInt(r.position, 10)));
   return posities.has(1) && posities.has(2) && posities.has(3);
 }
 
 async function getResult(season, round, raceStart, forceer){
-  // straffen achteraf komen soms pas na een dag → pas na 3 dagen vastzetten
-  const old = raceStart && (Date.now() - raceStart.getTime() > 3*24*HOUR);
+  // straffen achteraf komen soms pas na een dag → pas na 3 dagen vastzetten,
+  // en alleen een kopie die ná die 3 dagen is opgehaald
+  const vast = raceStart ? raceStart.getTime() + 3*24*HOUR : 0;
+  const old = raceStart && Date.now() > vast;
   const d = await cachedJSON(`${J_BASE}/${season}/${round}/results.json?limit=40`, old ? Infinity : 5*MIN,
     x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
-            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].Results)), forceer);
+            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].Results) &&
+            heeftSnelsteRonde(x.MRData.RaceTable.Races[0].Results)), forceer, vast);
   const res = d.MRData.RaceTable?.Races?.[0]?.Results;
   if(!res || !res.length) return null;
   const rows = res.map(r => ({
@@ -678,10 +691,11 @@ async function getQualiTop3(season, round, qualiStart, forceer){
   // LET OP: met ?limit=5 geeft de bron NIET de eerste vijf plekken, maar een
   // willekeurig rijtje (bij Austin: 1, 2, 4, 6, 8). Dan werd plek 4 als "derde"
   // gezien. Daarom altijd de hele lijst ophalen en zelf op positie sorteren.
-  const old = qualiStart && (Date.now() - qualiStart.getTime() > 24*HOUR);
+  const vast = qualiStart ? qualiStart.getTime() + 24*HOUR : 0;
+  const old = qualiStart && Date.now() > vast;
   const d = await cachedJSON(`${J_BASE}/${season}/${round}/qualifying.json?limit=30`, old ? Infinity : 5*MIN,
     x => !!(x && x.MRData && x.MRData.RaceTable && x.MRData.RaceTable.Races &&
-            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].QualifyingResults)), forceer);
+            x.MRData.RaceTable.Races[0] && heeftTop3(x.MRData.RaceTable.Races[0].QualifyingResults)), forceer, vast);
   const q = d.MRData.RaceTable?.Races?.[0]?.QualifyingResults;
   if(!heeftTop3(q)) return null;
   return q
@@ -1773,6 +1787,7 @@ async function loadOfficialData(forceer){
 
   // officiële kwali-uitslag nog niet binnen? pak 'm dan uit de live-data
   const kwaliGaten = S.races.filter(r => r.qualiStart && Date.now() > r.qualiStart.getTime() + 60*MIN &&
+                                         Date.now() - r.qualiStart.getTime() < 3*24*HOUR &&
                                          !S.qualis[r.round] && S.preds.some(p => p.round === r.round && p.q1));
   for(const r of kwaliGaten){
     try{
@@ -1783,6 +1798,7 @@ async function loadOfficialData(forceer){
 
   // officiële race-uitslag nog niet binnen? pak 'm dan uit de live-data
   const gaten = S.races.filter(r => raceDone(r) && !S.results[r.round] &&
+                                    Date.now() - r.raceStart.getTime() < 3*24*HOUR &&
                                     S.preds.some(p => p.round === r.round));
   for(const r of gaten){
     try{
@@ -2394,17 +2410,22 @@ async function resultaatViaOpenF1(race){
     .filter(r => r.driverId);
   if(rows.length < 3) return null;
 
-  // snelste raceronde erbij
+  // snelste raceronde erbij. Lukt dat niet, dan GEEN halve uitslag gebruiken:
+  // zonder snelste ronde mist iemand stilletjes 10 punten. Liever even wachten.
   let fl = null;
-  try{
-    const laps = await of1(`/laps?session_key=${K}`);
-    let beste = null;
-    for(const l of laps){
-      if(l.lap_duration == null || l.is_pit_out_lap) continue;
-      if(!beste || l.lap_duration < beste.lap_duration) beste = l;
-    }
-    if(beste) fl = of1NaarCoureurId(beste.driver_number, codeVan(beste.driver_number));
-  }catch(e){ /* zonder snelste ronde kunnen we ook prima verder */ }
+  let laps = null;
+  for(let poging = 0; poging < 2 && !Array.isArray(laps); poging++){
+    try{ laps = await of1(`/laps?session_key=${K}`); }
+    catch(e){ await new Promise(r => setTimeout(r, 1500)); }
+  }
+  if(!Array.isArray(laps) || !laps.length) return null;
+  let beste = null;
+  for(const l of laps){
+    if(l.lap_duration == null || l.is_pit_out_lap) continue;
+    if(!beste || l.lap_duration < beste.lap_duration) beste = l;
+  }
+  if(beste) fl = of1NaarCoureurId(beste.driver_number, codeVan(beste.driver_number));
+  if(!fl) return null;
 
   return { rows, fl, bron:'openf1', voorlopig:true, sessionKey:K };
 }
