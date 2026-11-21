@@ -400,6 +400,7 @@ a{color:var(--blue)}
 
 <main>
   <div id="storageBanner"></div>
+  <div id="opslagBanner"></div>
   <section id="view-race" class="view active"><div class="loading">Data laden…</div></section>
   <section id="view-predict" class="view"><div class="loading">Data laden…</div></section>
   <section id="view-standings" class="view"><div class="loading">Data laden…</div></section>
@@ -466,7 +467,7 @@ const SCORING = {
 
 /* Versiestempel. De app kijkt zelf of er een nieuwere versie klaarstaat en
    ververst zichzelf — anders blijft er iemand op een oude versie hangen. */
-const BUILD = '2026-11-01-gelijkestand';
+const BUILD = '2026-11-21-opslagweg';
 </script>
 <script>
 /* ============================================================
@@ -765,7 +766,34 @@ async function flushOutbox(keepalive){
     try{ await pushPred(row, keepalive); outboxDrop(row); }
     catch(e){ allesGelukt = false; }
   }
+  if(outboxGet().length === 0 && allesGelukt) zetOpslagStatus(true);
+  else if(!allesGelukt) zetOpslagStatus(false);
   return allesGelukt;
+}
+
+/* ---- is de gedeelde opslag bereikbaar? Zo niet: zeg dat HARDOP. ----
+   Vroeger stond er dan stilletjes "nog niet ingevuld" bij de anderen, terwijl
+   de app hun keuzes gewoon niet kón ophalen. */
+let opslagWasWeg = false;
+function zetOpslagStatus(ok){
+  const wasWeg = S.opslagWeg;
+  S.opslagWeg = !ok;
+  if(!ok) opslagWasWeg = true;
+  toonOpslagBanner();
+  // net weer terug? meteen alles van de anderen ophalen
+  if(ok && wasWeg) setTimeout(() => { if(typeof verversAlles === 'function') verversAlles(true); }, 300);
+}
+
+function toonOpslagBanner(){
+  const el = $('#opslagBanner'); if(!el) return;
+  if(!S.opslagWeg){ el.innerHTML = ''; return; }
+  const wacht = outboxGet().length;
+  el.innerHTML = `<div class="banner" style="border-color:var(--red2);background:rgba(225,6,0,.1)">
+    📡 <span><b>Geen verbinding met de gedeelde opslag.</b> Je ziet nu alleen wat op dít toestel staat —
+    de keuzes van de anderen kan de app op dit moment niet ophalen.
+    ${wacht ? `<br>Jouw ${wacht === 1 ? 'voorspelling staat' : wacht + ' voorspellingen staan'} veilig op je telefoon
+    en ${wacht === 1 ? 'gaat' : 'gaan'} vanzelf door zodra de verbinding terug is — met het tijdstip waarop je ze invulde.` : ''}
+    <button class="tab-btn" style="padding:5px 10px;margin-top:6px" onclick="verversAlles()">Opnieuw proberen</button></span></div>`;
 }
 
 async function loadPreds(season){
@@ -775,9 +803,11 @@ async function loadPreds(season){
       if(!r.ok) throw new Error('supabase '+r.status);
       const rows = await r.json();
       lsSet('preds:'+season, rows);            // serverkopie voor offline
+      zetOpslagStatus(true);
       return mergePreds(rows, season);         // eigen onverstuurde invoer blijft staan
     }catch(e){
       console.warn('Supabase niet bereikbaar, val terug op lokale kopie', e);
+      zetOpslagStatus(false);
       return mergePreds(lsGet('preds:'+season) || [], season);
     }
   }
@@ -1259,7 +1289,8 @@ function renderPredict(){
     if(!qLock){
       body += (ikzelf && pr && pr.q1)
         ? chipRow('Kwali', [['Q1','q1'],['Q2','q2'],['Q3','q3']], pr, null)
-        : `<div class="small muted" style="margin-top:4px">Kwali: ${pr && pr.q1 ? '✅ ingevuld — geheim tot de kwali' : '⏳ nog niet ingevuld'}</div>`;
+        : `<div class="small muted" style="margin-top:4px">Kwali: ${pr && pr.q1 ? '✅ ingevuld — geheim tot de kwali'
+            : (S.opslagWeg && !ikzelf ? '📡 onbekend — geen verbinding' : '⏳ nog niet ingevuld')}</div>`;
     } else if(pr){
       body += chipRow('Kwali', [['Q1','q1'],['Q2','q2'],['Q3','q3']], pr, sc);
     }
@@ -1268,12 +1299,14 @@ function renderPredict(){
       if(!rLock){
         body += (ikzelf && pr && pr.p1)
           ? chipRow('Race', [['P1','p1'],['P2','p2'],['P3','p3'],['⚡','fl']], pr, null, pr.joker)
-          : `<div class="small muted" style="margin-top:4px">Race: ${pr && pr.p1 ? '✅ ingevuld — geheim tot de start' : '⏳ nog niet ingevuld'}</div>`;
+          : `<div class="small muted" style="margin-top:4px">Race: ${pr && pr.p1 ? '✅ ingevuld — geheim tot de start'
+            : (S.opslagWeg && !ikzelf ? '📡 onbekend — geen verbinding' : '⏳ nog niet ingevuld')}</div>`;
       } else if(pr){
         body += chipRow('Race', [['P1','p1'],['P2','p2'],['P3','p3'],['⚡','fl']], pr, sc, pr.joker);
       }
     }
-    if(!body) body = `<div class="small muted" style="margin-top:4px">Nog niets ingevuld</div>`;
+    if(!body) body = `<div class="small muted" style="margin-top:4px">${S.opslagWeg && !ikzelf
+      ? '📡 Onbekend — de app kan de keuzes van de anderen nu niet ophalen' : 'Nog niets ingevuld'}</div>`;
     return `<div class="other-pred${ikzelf ? ' ikzelf' : ''}"><div class="op-head">${p.emoji} ${esc(p.name)}${
       ikzelf ? '<span class="jij-tag">jij</span>' : ''}
       ${sc ? `<span class="pts">+${sc.total}</span>` : ''}</div>${body}</div>`;
@@ -1907,6 +1940,12 @@ async function boot(){
   });
   window.addEventListener('pagehide', () => retryOutbox(true));
   await retryOutbox();
+  setInterval(async () => {
+    if(!S.opslagWeg && !outboxGet().length) return;
+    await retryOutbox();
+    const preds = await loadPreds(S.season).catch(() => null);
+    if(preds){ S.preds = preds; render(); }
+  }, 60e3);
 
   // elke 3 min zacht verversen tijdens raceweekenden, anders elke 15 min
   setInterval(() => {
